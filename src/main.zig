@@ -1,4 +1,5 @@
 const std = @import("std");
+const chip8 = @import("chip8.zig");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -8,12 +9,20 @@ pub fn main() !void {
     const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/PONG", .{});
     _ = try rom.seekTo(0);
     const rom_data = try rom.stat();
+
+    var virtual_machine = chip8.chip8{};
+    virtual_machine.init();
+
+    const vm_pointer = &virtual_machine;
+    const instructions = try rom.readToEndAlloc(allocator, rom_data.size);
     rom.close();
 
-    const instructions = try rom.readToEndAlloc(allocator, rom_data.size);
-    defer allocator.free(instructions);
+    for (vm_pointer.*.memory[512 .. 512 + instructions.len], instructions) |*address, instruction| {
+        address.* = instruction;
+    }
+    allocator.free(instructions);
 
-    std.debug.print("{s}", .{instructions});
+    std.debug.print("{s}", .{virtual_machine.memory});
 }
 
 test "simple test" {

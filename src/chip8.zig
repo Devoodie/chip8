@@ -1,17 +1,17 @@
 const std = @import("std");
 
-const chip8 = struct {
+pub const chip8 = struct {
     memory: [4096]u8 = undefined,
-    pc: u16,
-    index: u16,
-    stack: u16,
-    delay: u8,
-    sound: u8,
-    registers: [16]u8,
+    pc: u16 = 512,
+    //index: u16,
+    //display: [64][36]u1 = undefined,
+    // stack: u16,
+    //delay: u8,
+    //sound: u8,
+    //registers: [16]u8,
 
-    pub fn init() chip8 {
-        var fonts: [80]u8 = undefined;
-        const hex = [80]u8{ 
+    pub fn init(self: *chip8) void {
+        const fonts = [80]u8{
             0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
             0x20, 0x60, 0x20, 0x20, 0x70, // 1
             0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
@@ -27,15 +27,10 @@ const chip8 = struct {
             0xF0, 0x80, 0x80, 0x80, 0xF0, // C
             0xE0, 0x90, 0x90, 0x90, 0xE0, // D
             0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
-            0xF0, 0x80, 0xF0, 0x80, 0x80  // F
+            0xF0, 0x80, 0xF0, 0x80, 0x80, // F
         };
-        for(hex, fonts) |hexa, font| {
-            font = try std.fmt.hexToBytes(out: []u8, input: []const u8)
+        for (self.memory[80..160], fonts) |*value, font| {
+            value.* = font;
         }
-        
-        for(.memory[80..159], fonts) |value, font| {
-            value = font;
-        }
-        return chip8;
     }
 };
