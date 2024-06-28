@@ -4,11 +4,34 @@ const chip8 = @import("chip8.zig");
 pub fn execute_instruction(virtual_machine: *chip8.chip8) void {
     var opcode: u16 = 0;
     opcode |= virtual_machine.memory[virtual_machine.pc];
-    opcode = opcode << 8;
+    opcode <<= 8;
     opcode |= virtual_machine.memory[virtual_machine.pc + 1];
 
     switch (opcode & 0xF000) {
         0x0000 => blk: {
+            switch (opcode & 0x00EE) {
+                0x00E0 => {
+                    for (&virtual_machine.display) |*width| {
+                        for (width) |*height| {
+                            height.* = 0;
+                        }
+                    }
+                    break :blk;
+                },
+                0x00EE => {
+                    virtual_machine.pc = 0;
+                    for (0..16) |_| {
+                        virtual_machine.pc <<= 1;
+                        virtual_machine.pc |= virtual_machine.stack.pop();
+                        std.debug.print("{d}", .{virtual_machine.pc});
+                    }
+                    break :blk;
+                },
+                else => {
+                    std.debug.print("No valid opcode found!", .{});
+                    break :blk;
+                },
+            }
             break :blk;
         },
         0x1000 => blk: {
@@ -56,9 +79,9 @@ pub fn execute_instruction(virtual_machine: *chip8.chip8) void {
         0xF000 => blk: {
             break :blk;
         },
-        else => blk: {
+        else => default: {
             std.debug.print("No Valid Opcode Found!", .{});
-            break :blk;
+            break :default;
         },
     }
 }
@@ -72,7 +95,7 @@ pub fn main() !void {
     _ = try rom.seekTo(0);
     const rom_data = try rom.stat();
 
-    var virtual_machine = chip8.chip8{};
+    var virtual_machine = chip8.chip8{ .stack = std.BitStack.init(allocator) };
     virtual_machine.init();
 
     const vm_pointer = &virtual_machine;
@@ -85,7 +108,10 @@ pub fn main() !void {
 
     allocator.free(instructions);
 
-    execute_instruction(vm_pointer);
+    while (true) {
+        execute_instruction(vm_pointer);
+        vm_pointer.*.pc += 2;
+    }
 
     std.debug.print("{d}", .{virtual_machine.memory[512]});
 }
