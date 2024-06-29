@@ -33,4 +33,18 @@ pub const chip8 = struct {
             value.* = font;
         }
     }
+
+    pub fn pc_return(self: *chip8) void {
+        self.pc = 0;
+        for (0..16) |_| {
+            self.pc <<= 1;
+            self.pc |= self.stack.pop();
+            std.debug.print("{d}", .{self.pc});
+        }
+    }
+    pub fn subroutine(self: *chip8) void{
+        for(0..16) |i|{
+            
+        }
+    }
 };

@@ -1,5 +1,6 @@
 const std = @import("std");
 const chip8 = @import("chip8.zig");
+const op = @import("opcode.zig");
 
 pub fn execute_instruction(virtual_machine: *chip8.chip8) void {
     var opcode: u16 = 0;
@@ -19,12 +20,7 @@ pub fn execute_instruction(virtual_machine: *chip8.chip8) void {
                     break :blk;
                 },
                 0x00EE => {
-                    virtual_machine.pc = 0;
-                    for (0..16) |_| {
-                        virtual_machine.pc <<= 1;
-                        virtual_machine.pc |= virtual_machine.stack.pop();
-                        std.debug.print("{d}", .{virtual_machine.pc});
-                    }
+                    virtual_machine.pc_return();
                     break :blk;
                 },
                 else => {
@@ -35,6 +31,8 @@ pub fn execute_instruction(virtual_machine: *chip8.chip8) void {
             break :blk;
         },
         0x1000 => blk: {
+            virtual_machine.pc = opcode & 0xFFF;
+            std.debug.print("Jumping to 0x{x}", .{virtual_machine.pc});
             break :blk;
         },
         0x2000 => blk: {
