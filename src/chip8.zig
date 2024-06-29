@@ -42,9 +42,13 @@ pub const chip8 = struct {
             std.debug.print("{d}", .{self.pc});
         }
     }
-    pub fn subroutine(self: *chip8) void{
-        for(0..16) |i|{
-            
+    pub fn subroutine(self: *chip8, address: u12) void {
+        var bit: u1 = 0;
+        for (0..16) |_| {
+            bit |= self.pc;
+            self.pc >>= 1;
+            self.stack.push(bit);
         }
+        self.pc = address;
     }
 };
