@@ -3,12 +3,12 @@ const std = @import("std");
 pub const chip8 = struct {
     memory: [4096]u8 = undefined,
     pc: u16 = 512,
-    //index: u16,
+    index: u16 = 0,
     display: [64][36]u1 = undefined,
-    stack: std.BitStack,
+    stack: std.ArrayList(u16),
     //delay: u8,
     //sound: u8,
-    //registers: [16]u8,
+    registers: [16]u8 = undefined,
 
     pub fn init(self: *chip8) void {
         const fonts = [80]u8{
@@ -33,22 +33,13 @@ pub const chip8 = struct {
             value.* = font;
         }
     }
-
-    pub fn pc_return(self: *chip8) void {
-        self.pc = 0;
-        for (0..16) |_| {
-            self.pc <<= 1;
-            self.pc |= self.stack.pop();
-            std.debug.print("{d}", .{self.pc});
-        }
-    }
-    pub fn subroutine(self: *chip8, address: u12) void {
-        var bit: u1 = 0;
-        for (0..16) |_| {
-            bit |= self.pc;
-            self.pc >>= 1;
-            self.stack.push(bit);
-        }
-        self.pc = address;
-    }
+    //     An entire function is not needed for these two operations due to the change in datastructure from BitStack to ArrayList, but outsourcing these lines into functions help with the zig testing system.
+    //    pub fn pc_return(self: *chip8) void {
+    //        self.pc = self.stack.pop();
+    //       std.debug.print("{d}", .{self.pc});
+    //   }
+    //   pub fn subroutine(self: *chip8, address: u16) void {
+    //       self.stack.append(self.pc);
+    //        self.pc = address;
+    //   }
 };
