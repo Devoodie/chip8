@@ -80,11 +80,14 @@ pub fn execute_instruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Erro
         0xC000 => blk: {
             break :blk;
         },
-        0xD000 => display: {
-            const x_register: u4 = @intCast();
-            const y_register: u4 = @intCast();
-            const n: u4 = @intCast();
-            break :display;
+        0xD000 => draw: {
+            var x_register: u8 = virtual_machine.registers[((opcode & 0xF00) >> 8)] & 63;
+            var y_register: u8 = virtual_machine[(opcode & 0xF0) >> 4] & 31;
+            const n: u4 = @intCast(opcode & 0xF);
+            virtual_machine.registers[15] = 0;
+            for(0..n) |index| {
+            }
+            break :draw;
         },
         0xE000 => blk: {
             break :blk;
