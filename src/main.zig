@@ -82,10 +82,18 @@ pub fn execute_instruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Erro
         },
         0xD000 => draw: {
             var x_register: u8 = virtual_machine.registers[((opcode & 0xF00) >> 8)] & 63;
-            var y_register: u8 = virtual_machine[(opcode & 0xF0) >> 4] & 31;
+            var y_register: u8 = virtual_machine.registers[(opcode & 0xF0) >> 4] & 31;
             const n: u4 = @intCast(opcode & 0xF);
             virtual_machine.registers[15] = 0;
-            for(0..n) |index| {
+            var sprite_row: u8 = 0;
+
+            for (0..n) |i| {
+                sprite_row = virtual_machine.registers[virtual_machine.index + i];
+                for (0..8) |_| {
+                    virtual_machine.display[x_register][y_register] = @intCast(sprite_row ^ virtual_machine.display[x_register][y_register]);
+                    x_register += 1;
+                }
+                y_register += 1;
             }
             break :draw;
         },
