@@ -6,6 +6,7 @@ pub fn execute_instruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Erro
     opcode |= virtual_machine.memory[virtual_machine.pc];
     opcode <<= 8;
     opcode |= virtual_machine.memory[virtual_machine.pc + 1];
+    std.debug.print("Opcode: 0x{x}\n", .{opcode});
 
     switch (opcode & 0xF000) {
         0x0000 => blk: {
@@ -29,10 +30,10 @@ pub fn execute_instruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Erro
             }
             break :blk;
         },
-        0x1000 => jump: {
+        0x1000 => {
             virtual_machine.pc = opcode & 0xFFF;
             std.debug.print("Jumping to 0x{x}\n", .{virtual_machine.pc});
-            break :jump;
+            return;
         },
         0x2000 => subroutine: {
             const address = opcode & 0xFFF;
@@ -89,7 +90,7 @@ pub fn execute_instruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Erro
             var pixel: u1 = 0;
 
             for (0..n) |i| {
-                sprite_row = virtual_machine.registers[virtual_machine.index + i];
+                sprite_row = virtual_machine.memory[virtual_machine.index + i];
                 virtual_machine.registers[15] = 0;
                 row: for (0..8) |_| {
                     pixel = @intCast((sprite_row << 7) >> 7);
@@ -118,6 +119,7 @@ pub fn execute_instruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Erro
             break :default;
         },
     }
+    virtual_machine.pc += 2;
 }
 
 pub fn main() !void {
@@ -144,7 +146,6 @@ pub fn main() !void {
 
     while (true) {
         _ = try execute_instruction(vm_pointer);
-        vm_pointer.*.pc += 2;
     }
 
     std.debug.print("{d}", .{virtual_machine.memory[512]});
