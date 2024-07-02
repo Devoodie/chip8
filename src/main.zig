@@ -86,11 +86,21 @@ pub fn execute_instruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Erro
             const n: u4 = @intCast(opcode & 0xF);
             virtual_machine.registers[15] = 0;
             var sprite_row: u8 = 0;
+            var pixel: u1 = 0;
 
             for (0..n) |i| {
                 sprite_row = virtual_machine.registers[virtual_machine.index + i];
-                for (0..8) |_| {
-                    virtual_machine.display[x_register][y_register] = @intCast(sprite_row ^ virtual_machine.display[x_register][y_register]);
+                virtual_machine.registers[15] = 0;
+                row: for (0..8) |_| {
+                    pixel = @intCast((sprite_row << 7) >> 7);
+                    if (x_register > 63) {
+                        break :row;
+                    } else if ((virtual_machine.display[x_register][y_register] == 1) and (pixel == 1)) {
+                        virtual_machine.registers[15] = 1;
+                        virtual_machine.display[x_register][y_register] = 0;
+                    } else {
+                        virtual_machine.display[x_register][y_register] = pixel;
+                    }
                     x_register += 1;
                 }
                 y_register += 1;
