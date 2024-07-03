@@ -1,5 +1,6 @@
 const std = @import("std");
 const chip8 = @import("chip8.zig");
+const c = @cImport(@cInclude("SDL2/SDL.h"));
 
 pub fn execute_instruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error!void {
     var opcode: u16 = 0;
@@ -143,6 +144,21 @@ pub fn main() !void {
     }
 
     allocator.free(instructions);
+
+    if (c.SDL_Init(c.SDL_INIT_VIDEO) != 0) {
+        std.debug.print("Could not init SDL: {s}", .{c.SDL_GetError()});
+        return;
+    }
+    const screen = c.SDL_CreateWindow("Dev's Chip8", c.SDL_WINDOWPOS_UNDEFINED, c.SDL_WINDOWPOS_UNDEFINED, 64, 32, 0);
+    const renderer = c.SDL_CreateRenderer(screen, -1, c.SDL_RENDERER_SOFTWARE);
+
+    _ = c.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    _ = c.SDL_RenderClear(renderer);
+    _ = c.SDL_RenderPresent(renderer);
+    _ = c.SDL_Delay(3000);
+
+    c.SDL_DestroyWindow(screen);
+    c.SDL_Quit();
 
     while (true) {
         _ = try execute_instruction(vm_pointer);
