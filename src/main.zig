@@ -2,7 +2,28 @@ const std = @import("std");
 const chip8 = @import("chip8.zig");
 const c = @cImport(@cInclude("SDL2/SDL.h"));
 
-pub fn execute_instruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error!void {
+pub fn sdlDraw(bitmap: [64][36]u1, renderer: ?*c.SDL_Renderer) void {
+    _ = c.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    _ = c.SDL_RenderClear(renderer);
+    _ = c.SDL_SetRenderDrawColor(renderer, 255, 255, 255, 0);
+    var screen_x: c_int = 0;
+    var screen_y: c_int = 0;
+
+    for (bitmap, 0..) |row, row_index| {
+        for (row, 0..) |column, column_index| {
+            if (column == 1) {
+                screen_x = row_index * 20;
+                screen_y = column_index * 20;
+
+                for (0..20) |i| {
+                    c.SDL_RenderDrawLine(renderer, screen_x, screen_y + i, screen_x + 20, screen_y);
+                }
+            }
+        }
+    }
+}
+
+pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error!void {
     var opcode: u16 = 0;
     opcode |= virtual_machine.memory[virtual_machine.pc];
     opcode <<= 8;
@@ -97,11 +118,11 @@ pub fn execute_instruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Erro
                     pixel = @intCast((sprite_row << 7) >> 7);
                     if (x_register > 63) {
                         break :row;
-                    } else if ((virtual_machine.display[x_register][y_register] == 1) and (pixel == 1)) {
+                    } else if ((virtual_machine.display[y_register][x_register] == 1) and (pixel == 1)) {
                         virtual_machine.registers[15] = 1;
-                        virtual_machine.display[x_register][y_register] = 0;
+                        virtual_machine.display[y_register][x_register] = 0;
                     } else {
-                        virtual_machine.display[x_register][y_register] = pixel;
+                        virtual_machine.display[y_register][x_register] = pixel;
                     }
                     x_register += 1;
                 }
@@ -149,19 +170,19 @@ pub fn main() !void {
         std.debug.print("Could not init SDL: {s}", .{c.SDL_GetError()});
         return;
     }
-    const screen = c.SDL_CreateWindow("Dev's Chip8", c.SDL_WINDOWPOS_UNDEFINED, c.SDL_WINDOWPOS_UNDEFINED, 64, 32, 0);
+    const screen = c.SDL_CreateWindow("Dev's Chip8", c.SDL_WINDOWPOS_UNDEFINED, c.SDL_WINDOWPOS_UNDEFINED, 1280, 640, 0);
     const renderer = c.SDL_CreateRenderer(screen, -1, c.SDL_RENDERER_SOFTWARE);
-
     _ = c.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     _ = c.SDL_RenderClear(renderer);
-    _ = c.SDL_RenderPresent(renderer);
-    _ = c.SDL_Delay(3000);
+    //    _ = c.SDL_RenderPresent(renderer);
+    //    _ = c.SDL_Delay(3000);
 
-    c.SDL_DestroyWindow(screen);
-    c.SDL_Quit();
+    // c.SDL_DestroyWindow(screen);
+    // c.SDL_Quit();
 
     while (true) {
-        _ = try execute_instruction(vm_pointer);
+        _ = try executeInstruction(vm_pointer);
+        sdlDraw(vm_pointer.display, renderer);
     }
 
     std.debug.print("{d}", .{virtual_machine.memory[512]});
