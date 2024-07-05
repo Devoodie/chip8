@@ -8,15 +8,17 @@ pub fn sdlDraw(bitmap: [64][36]u1, renderer: ?*c.SDL_Renderer) void {
     _ = c.SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     var screen_x: c_int = 0;
     var screen_y: c_int = 0;
-
+    // this whole section is wrong
     for (bitmap, 0..) |row, row_index| {
         for (row, 0..) |column, column_index| {
             if (column == 1) {
                 screen_x = @as(c_int, @intCast(row_index)) * 20;
                 screen_y = @as(c_int, @intCast(column_index)) * 20;
+                std.debug.print("X: {d}, Y{d}\n", .{ screen_x, screen_y });
+                _ = c.SDL_RenderDrawLine(renderer, screen_x, screen_y, screen_x + 20, screen_y);
 
                 for (0..20) |i| {
-                    _ = c.SDL_RenderDrawLine(renderer, screen_x, screen_y + @as(c_int, @intCast(i)), screen_x + 20, screen_y);
+                    _ = c.SDL_RenderDrawLine(renderer, screen_x + @as(c_int, @intCast(i)), screen_y, screen_x, screen_y + 20);
                 }
             }
         }
@@ -117,7 +119,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
                 sprite_row = virtual_machine.memory[virtual_machine.index + i];
                 virtual_machine.registers[15] = 0;
                 row: for (0..8) |_| {
-                    pixel = @intCast((sprite_row << 7) >> 7);
+                    pixel = @intCast(sprite_row & 0b00000001);
                     if (x_register >= 32 or y_register >= 64) {
                         break :row;
                     } else if ((virtual_machine.display[y_register][x_register] == 1) and (pixel == 1)) {
@@ -176,6 +178,9 @@ pub fn main() !void {
     const renderer = c.SDL_CreateRenderer(screen, -1, c.SDL_RENDERER_SOFTWARE);
     _ = c.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     _ = c.SDL_RenderClear(renderer);
+    var event: c.SDL_Event = undefined;
+    const event_pointer: [*c]c.SDL_Event = @constCast(&event);
+    _ = c.SDL_PollEvent(event_pointer);
     //    _ = c.SDL_RenderPresent(renderer);
     //    _ = c.SDL_Delay(3000);
 
@@ -185,6 +190,11 @@ pub fn main() !void {
     while (true) {
         _ = try executeInstruction(vm_pointer);
         sdlDraw(vm_pointer.display, renderer);
+        if (event.type == c.SDL_QUIT) {
+            c.SDL_DestroyWindow(screen);
+            c.SDL_Quit();
+            return;
+        }
     }
 
     std.debug.print("{d}", .{virtual_machine.memory[512]});
