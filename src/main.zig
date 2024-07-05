@@ -5,22 +5,23 @@ const c = @cImport(@cInclude("SDL2/SDL.h"));
 pub fn sdlDraw(bitmap: [64][36]u1, renderer: ?*c.SDL_Renderer) void {
     _ = c.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     _ = c.SDL_RenderClear(renderer);
-    _ = c.SDL_SetRenderDrawColor(renderer, 255, 255, 255, 0);
+    _ = c.SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     var screen_x: c_int = 0;
     var screen_y: c_int = 0;
 
     for (bitmap, 0..) |row, row_index| {
         for (row, 0..) |column, column_index| {
             if (column == 1) {
-                screen_x = row_index * 20;
-                screen_y = column_index * 20;
+                screen_x = @as(c_int, @intCast(row_index)) * 20;
+                screen_y = @as(c_int, @intCast(column_index)) * 20;
 
                 for (0..20) |i| {
-                    c.SDL_RenderDrawLine(renderer, screen_x, screen_y + i, screen_x + 20, screen_y);
+                    _ = c.SDL_RenderDrawLine(renderer, screen_x, screen_y + @as(c_int, @intCast(i)), screen_x + 20, screen_y);
                 }
             }
         }
     }
+    _ = c.SDL_RenderPresent(renderer);
 }
 
 pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error!void {
@@ -55,6 +56,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
         0x1000 => {
             virtual_machine.pc = opcode & 0xFFF;
             std.debug.print("Jumping to 0x{x}\n", .{virtual_machine.pc});
+            std.debug.print("Value {x}\n", .{virtual_machine.memory[virtual_machine.pc]});
             return;
         },
         0x2000 => subroutine: {
@@ -116,7 +118,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
                 virtual_machine.registers[15] = 0;
                 row: for (0..8) |_| {
                     pixel = @intCast((sprite_row << 7) >> 7);
-                    if (x_register > 63) {
+                    if (x_register >= 32 or y_register >= 64) {
                         break :row;
                     } else if ((virtual_machine.display[y_register][x_register] == 1) and (pixel == 1)) {
                         virtual_machine.registers[15] = 1;
@@ -149,7 +151,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
-    const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/PONG", .{});
+    const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/IBMLogo.ch8", .{});
     _ = try rom.seekTo(0);
     const rom_data = try rom.stat();
 
