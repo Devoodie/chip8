@@ -2,7 +2,7 @@ const std = @import("std");
 const chip8 = @import("chip8.zig");
 const c = @cImport(@cInclude("SDL2/SDL.h"));
 
-pub fn sdlDraw(bitmap: [64][36]u1, renderer: ?*c.SDL_Renderer) void {
+pub fn sdlDraw(bitmap: [32][64]u1, renderer: ?*c.SDL_Renderer) void {
     _ = c.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     _ = c.SDL_RenderClear(renderer);
     _ = c.SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
@@ -12,13 +12,13 @@ pub fn sdlDraw(bitmap: [64][36]u1, renderer: ?*c.SDL_Renderer) void {
     for (bitmap, 0..) |row, row_index| {
         for (row, 0..) |column, column_index| {
             if (column == 1) {
-                screen_x = @as(c_int, @intCast(row_index)) * 20;
-                screen_y = @as(c_int, @intCast(column_index)) * 20;
+                screen_x = @as(c_int, @intCast(column_index)) * 20;
+                screen_y = @as(c_int, @intCast(row_index)) * 20;
                 std.debug.print("X: {d}, Y{d}\n", .{ screen_x, screen_y });
                 _ = c.SDL_RenderDrawLine(renderer, screen_x, screen_y, screen_x + 20, screen_y);
 
                 for (0..20) |i| {
-                    _ = c.SDL_RenderDrawLine(renderer, screen_x + @as(c_int, @intCast(i)), screen_y, screen_x, screen_y + 20);
+                    _ = c.SDL_RenderDrawLine(renderer, screen_x + @as(c_int, @intCast(i)), screen_y, screen_x + @as(c_int, @intCast(i)), screen_y + 20);
                 }
             }
         }
@@ -37,9 +37,9 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
         0x0000 => blk: {
             switch (opcode & 0x00EE) {
                 0x00E0 => {
-                    for (&virtual_machine.display) |*width| {
-                        for (width) |*height| {
-                            height.* = 0;
+                    for (&virtual_machine.display) |*row| {
+                        for (row) |*column| {
+                            column.* = 0;
                         }
                     }
                     break :blk;
@@ -108,7 +108,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
             break :blk;
         },
         0xD000 => draw: {
-            var x_register: u8 = virtual_machine.registers[((opcode & 0xF00) >> 8)] & 63;
+            var x_register: u8 = virtual_machine.registers[(opcode & 0xF00) >> 8] & 63;
             var y_register: u8 = virtual_machine.registers[(opcode & 0xF0) >> 4] & 31;
             const n: u4 = @intCast(opcode & 0xF);
             virtual_machine.registers[15] = 0;
@@ -117,17 +117,19 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
 
             for (0..n) |i| {
                 sprite_row = virtual_machine.memory[virtual_machine.index + i];
+                std.debug.print("sprite: {x} at index: {d}", .{ sprite_row, virtual_machine.index });
                 virtual_machine.registers[15] = 0;
                 row: for (0..8) |_| {
                     pixel = @intCast(sprite_row & 0b00000001);
-                    if (x_register >= 32 or y_register >= 64) {
+                    if (x_register >= 64 or y_register >= 32) {
                         break :row;
                     } else if ((virtual_machine.display[y_register][x_register] == 1) and (pixel == 1)) {
                         virtual_machine.registers[15] = 1;
                         virtual_machine.display[y_register][x_register] = 0;
                     } else {
-                        virtual_machine.display[y_register][x_register] = pixel;
+                        virtual_machine.display[y_register][x_register] ^= pixel;
                     }
+                    sprite_row >>= 1;
                     x_register += 1;
                 }
                 y_register += 1;

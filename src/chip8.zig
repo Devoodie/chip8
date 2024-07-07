@@ -4,7 +4,7 @@ pub const chip8 = struct {
     memory: [4096]u8 = undefined,
     pc: u16 = 512,
     index: u16 = 0,
-    display: [64][36]u1 = undefined,
+    display: [32][64]u1 = undefined,
     stack: std.ArrayList(u16),
     //delay: u8,
     //sound: u8,
