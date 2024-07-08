@@ -121,7 +121,8 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
                 std.debug.print("sprite: 0x{x} at index: {d} \n", .{ sprite_row, virtual_machine.index + i });
                 virtual_machine.registers[15] = 0;
                 row: for (0..8) |_| {
-                    pixel = @intCast(sprite_row & 0b00000001);
+                    //sprites should be processed big endian fix this asap
+                    pixel = @intCast((sprite_row & 0b10000000) >> 7);
                     if (x_register >= 64 or y_register >= 32) {
                         break :row;
                     } else if ((virtual_machine.display[y_register][x_register] == 1) and (pixel == 1)) {
@@ -130,7 +131,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
                     } else {
                         virtual_machine.display[y_register][x_register] ^= pixel;
                     }
-                    sprite_row >>= 1;
+                    sprite_row <<= 1;
                     x_register += 1;
                 }
                 y_register += 1;
@@ -157,7 +158,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
-    const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/IBMLogo.ch8", .{});
+    const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/chip8splash.ch8", .{});
     _ = try rom.seekTo(0);
     const rom_data = try rom.stat();
 
@@ -190,11 +191,12 @@ pub fn main() !void {
 
     // c.SDL_DestroyWindow(screen);
     // c.SDL_Quit();
-    //
+    //var stop: u8 = 0;
 
     while (true) {
         _ = try executeInstruction(vm_pointer);
         sdlDraw(vm_pointer.display, renderer);
+        //   stop += 1;
         if (event.type == c.SDL_QUIT) {
             c.SDL_DestroyWindow(screen);
             c.SDL_Quit();
