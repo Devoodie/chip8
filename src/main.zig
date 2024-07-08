@@ -42,6 +42,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
                             column.* = 0;
                         }
                     }
+                    std.debug.print("Screen Cleared!\n", .{});
                     break :blk;
                 },
                 0x00EE => {
@@ -117,7 +118,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
 
             for (0..n) |i| {
                 sprite_row = virtual_machine.memory[virtual_machine.index + i];
-                std.debug.print("sprite: {x} at index: {d}", .{ sprite_row, virtual_machine.index });
+                std.debug.print("sprite: 0x{x} at index: {d} \n", .{ sprite_row, virtual_machine.index + i });
                 virtual_machine.registers[15] = 0;
                 row: for (0..8) |_| {
                     pixel = @intCast(sprite_row & 0b00000001);
@@ -133,6 +134,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
                     x_register += 1;
                 }
                 y_register += 1;
+                x_register = virtual_machine.registers[(opcode & 0xF00) >> 8] & 63;
             }
             break :draw;
         },
@@ -188,6 +190,7 @@ pub fn main() !void {
 
     // c.SDL_DestroyWindow(screen);
     // c.SDL_Quit();
+    //
 
     while (true) {
         _ = try executeInstruction(vm_pointer);
