@@ -195,6 +195,7 @@ pub fn main() !void {
 
     while (true) {
         _ = try executeInstruction(vm_pointer);
+        _ = c.SDL_PollEvent(event_pointer);
         sdlDraw(vm_pointer.display, renderer);
         //   stop += 1;
         if (event.type == c.SDL_QUIT) {
