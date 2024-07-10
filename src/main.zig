@@ -68,14 +68,29 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
             virtual_machine.pc = address;
             break :subroutine;
         },
-        0x3000 => blk: {
-            break :blk;
+        0x3000 => equal_skip: {
+            const value: u8 = @intCast(opcode & 0xFF);
+            const register: u4 = @intCast((opcode & 0xF00) >> 8);
+            if (value == virtual_machine.registers[register]) {
+                virtual_machine.pc += 2;
+            }
+            break :equal_skip;
         },
-        0x4000 => blk: {
-            break :blk;
+        0x4000 => not_equal: {
+            const value: u8 = @intCast(opcode & 0xFF);
+            const register: u4 = @intCast((opcode & 0xF00) >> 8);
+            if (!(value == virtual_machine.registers[register])) {
+                virtual_machine.pc += 2;
+            }
+            break :not_equal;
         },
-        0x5000 => blk: {
-            break :blk;
+        0x5000 => registers_equal: {
+            const x_register: u4 = @intCast((opcode & 0xF00) >> 8);
+            const y_register: u4 = @intCast((opcode & 0xF0) >> 4);
+            if (virtual_machine.registers[x_register] == virtual_machine.registers[y_register]) {
+                virtual_machine.pc += 2;
+            }
+            break :registers_equal;
         },
         0x6000 => set_register: {
             const register = (opcode & 0xF00) >> 8;
@@ -95,6 +110,11 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
             break :blk;
         },
         0x9000 => blk: {
+            const x_register: u4 = @intCast((opcode & 0xF00) >> 8);
+            const y_register: u4 = @intCast((opcode & 0xF0) >> 4);
+            if (!(virtual_machine.registers[x_register] == virtual_machine.registers[y_register])) {
+                virtual_machine.pc += 2;
+            }
             break :blk;
         },
         0xA000 => set_index: {
@@ -102,8 +122,9 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
             virtual_machine.index = address;
             break :set_index;
         },
-        0xB000 => blk: {
-            break :blk;
+        0xB000 => offset_jump: {
+            virtual_machine.pc = (opcode & 0xFFF) + virtual_machine.registers[0];
+            break :offset_jump;
         },
         0xC000 => blk: {
             break :blk;
@@ -185,7 +206,6 @@ pub fn main() !void {
     _ = c.SDL_RenderClear(renderer);
     var event: c.SDL_Event = undefined;
     const event_pointer: [*c]c.SDL_Event = @constCast(&event);
-    _ = c.SDL_PollEvent(event_pointer);
     //    _ = c.SDL_RenderPresent(renderer);
     //    _ = c.SDL_Delay(3000);
 
