@@ -14,7 +14,7 @@ pub fn sdlDraw(bitmap: [32][64]u1, renderer: ?*c.SDL_Renderer) void {
             if (column == 1) {
                 screen_x = @as(c_int, @intCast(column_index)) * 20;
                 screen_y = @as(c_int, @intCast(row_index)) * 20;
-                std.debug.print("X: {d}, Y{d}\n", .{ screen_x, screen_y });
+                //                std.debug.print("X: {d}, Y{d}\n", .{ screen_x, screen_y });
                 _ = c.SDL_RenderDrawLine(renderer, screen_x, screen_y, screen_x + 20, screen_y);
 
                 for (0..20) |i| {
@@ -31,7 +31,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
     opcode |= virtual_machine.memory[virtual_machine.pc];
     opcode <<= 8;
     opcode |= virtual_machine.memory[virtual_machine.pc + 1];
-    std.debug.print("Opcode: 0x{x}\n", .{opcode});
+    //   std.debug.print("Opcode: 0x{x}\n", .{opcode});
 
     switch (opcode & 0xF000) {
         0x0000 => blk: {
@@ -58,8 +58,8 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
         },
         0x1000 => {
             virtual_machine.pc = opcode & 0xFFF;
-            std.debug.print("Jumping to 0x{x}\n", .{virtual_machine.pc});
-            std.debug.print("Value {x}\n", .{virtual_machine.memory[virtual_machine.pc]});
+            //            std.debug.print("Jumping to 0x{x}\n", .{virtual_machine.pc});
+            //           std.debug.print("Value {x}\n", .{virtual_machine.memory[virtual_machine.pc]});
             return;
         },
         0x2000 => subroutine: {
@@ -96,13 +96,13 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
             const register = (opcode & 0xF00) >> 8;
             const value: u8 = @intCast(opcode & 0xFF);
             virtual_machine.registers[register] = value;
-            std.debug.print("Value: {d} at Register:{d}\n", .{ value, register });
+            //            std.debug.print("Value: {d} at Register:{d}\n", .{ value, register });
             break :set_register;
         },
         0x7000 => add_register: {
             const register = (opcode & 0xF00) >> 8;
             const value: u8 = @intCast(opcode & 0xFF);
-            std.debug.print("{d} + {d} in Register: {d}\n", .{ virtual_machine.registers[register], value, register });
+            //            std.debug.print("{d} + {d} in Register: {d}\n", .{ virtual_machine.registers[register], value, register });
             virtual_machine.registers[register] += value;
             break :add_register;
         },
@@ -139,7 +139,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
 
             for (0..n) |i| {
                 sprite_row = virtual_machine.memory[virtual_machine.index + i];
-                std.debug.print("sprite: 0x{x} at index: {d} \n", .{ sprite_row, virtual_machine.index + i });
+                //                std.debug.print("sprite: 0x{x} at index: {d} \n", .{ sprite_row, virtual_machine.index + i });
                 virtual_machine.registers[15] = 0;
                 row: for (0..8) |_| {
                     //sprites should be processed big endian fix this asap
@@ -206,6 +206,8 @@ pub fn main() !void {
     _ = c.SDL_RenderClear(renderer);
     var event: c.SDL_Event = undefined;
     const event_pointer: [*c]c.SDL_Event = @constCast(&event);
+    var keyboard: [*c]u8 = undefined;
+    const keys = 0;
     //    _ = c.SDL_RenderPresent(renderer);
     //    _ = c.SDL_Delay(3000);
 
@@ -222,6 +224,12 @@ pub fn main() !void {
             c.SDL_DestroyWindow(screen);
             c.SDL_Quit();
             return;
+        }
+
+        keyboard = @constCast(event.key);
+
+        for (0..keys) |input| {
+            std.debug.print("{s} was pressed!", .{keyboard[input]});
         }
     }
 
