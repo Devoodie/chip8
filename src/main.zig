@@ -8,13 +8,12 @@ pub fn sdlDraw(bitmap: [32][64]u1, renderer: ?*c.SDL_Renderer) void {
     _ = c.SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     var screen_x: c_int = 0;
     var screen_y: c_int = 0;
-    // this whole section is wrong
+
     for (bitmap, 0..) |row, row_index| {
         for (row, 0..) |column, column_index| {
             if (column == 1) {
                 screen_x = @as(c_int, @intCast(column_index)) * 20;
                 screen_y = @as(c_int, @intCast(row_index)) * 20;
-                //                std.debug.print("X: {d}, Y{d}\n", .{ screen_x, screen_y });
                 _ = c.SDL_RenderDrawLine(renderer, screen_x, screen_y, screen_x + 20, screen_y);
 
                 for (0..20) |i| {
@@ -24,6 +23,78 @@ pub fn sdlDraw(bitmap: [32][64]u1, renderer: ?*c.SDL_Renderer) void {
         }
     }
     _ = c.SDL_RenderPresent(renderer);
+}
+
+pub fn GetKeys(key_array: [*]u8, keyboard: [15]u1) bool {
+    for (&keyboard) |*key| {
+        key.* = 0;
+    }
+    var keys_set: bool = 0;
+    if (key_array[c.SDL_SCANCODE_1] == 1) {
+        keys_set = 1;
+        keyboard[0] = 1;
+    }
+    if (key_array[c.SDL_SCANCODE_2] == 1) {
+        keys_set = 1;
+        keyboard[1] = 1;
+    }
+    if (key_array[c.SDL_SCANCODE_3] == 1) {
+        keys_set = 1;
+        keyboard[2] = 1;
+    }
+    if (key_array[c.SDL_SCANCODE_4] == 1) {
+        keys_set = 1;
+        keyboard[3] = 1;
+    }
+    if (key_array[c.SDL_SCANCODE_Q] == 1) {
+        keys_set = 1;
+        keyboard[4] = 1;
+    }
+    if (key_array[c.SDL_SCANCODE_W] == 1) {
+        keys_set = 1;
+        keyboard[5] = 1;
+    }
+    if (key_array[c.SDL_SCANCODE_E] == 1) {
+        keys_set = 1;
+        keyboard[6] = 1;
+    }
+    if (key_array[c.SDL_SCANCODE_R] == 1) {
+        keys_set = 1;
+        keyboard[7] = 1;
+    }
+    if (key_array[c.SDL_SCANCODE_A] == 1) {
+        keys_set = 1;
+        keyboard[8] = 1;
+    }
+    if (key_array[c.SDL_SCANCODE_S] == 1) {
+        keys_set = 1;
+        keyboard[9] = 1;
+    }
+    if (key_array[c.SDL_SCANCODE_D] == 1) {
+        keys_set = 1;
+        keyboard[10] = 1;
+    }
+    if (key_array[c.SDL_SCANCODE_F] == 1) {
+        keys_set = 1;
+        keyboard[11] = 1;
+    }
+    if (key_array[c.SDL_SCANCODE_Z] == 1) {
+        keys_set = 1;
+        keyboard[12] = 1;
+    }
+    if (key_array[c.SDL_SCANCODE_X] == 1) {
+        keys_set = 1;
+        keyboard[13] = 1;
+    }
+    if (key_array[c.SDL_SCANCODE_C] == 1) {
+        keys_set = 1;
+        keyboard[14] = 1;
+    }
+    if (key_array[c.SDL_SCANCODE_V] == 1) {
+        keys_set = 1;
+        keyboard[15] = 1;
+    }
+    return keys_set;
 }
 
 pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error!void {
@@ -109,13 +180,13 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
         0x8000 => blk: {
             break :blk;
         },
-        0x9000 => blk: {
+        0x9000 => registers_not_equal: {
             const x_register: u4 = @intCast((opcode & 0xF00) >> 8);
             const y_register: u4 = @intCast((opcode & 0xF0) >> 4);
             if (!(virtual_machine.registers[x_register] == virtual_machine.registers[y_register])) {
                 virtual_machine.pc += 2;
             }
-            break :blk;
+            break :registers_not_equal;
         },
         0xA000 => set_index: {
             const address = opcode & 0xFFF;
@@ -139,10 +210,9 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
 
             for (0..n) |i| {
                 sprite_row = virtual_machine.memory[virtual_machine.index + i];
-                //                std.debug.print("sprite: 0x{x} at index: {d} \n", .{ sprite_row, virtual_machine.index + i });
                 virtual_machine.registers[15] = 0;
+
                 row: for (0..8) |_| {
-                    //sprites should be processed big endian fix this asap
                     pixel = @intCast((sprite_row & 0b10000000) >> 7);
                     if (x_register >= 64 or y_register >= 32) {
                         break :row;
@@ -207,33 +277,20 @@ pub fn main() !void {
     var event: c.SDL_Event = undefined;
     const event_pointer: [*c]c.SDL_Event = @constCast(&event);
     var keyboard: [*c]u8 = undefined;
-    const keys = 0;
-    //    _ = c.SDL_RenderPresent(renderer);
-    //    _ = c.SDL_Delay(3000);
-
-    // c.SDL_DestroyWindow(screen);
-    // c.SDL_Quit();
-    //var stop: u8 = 0;
+    var keys: c_int = 0;
 
     while (true) {
         _ = try executeInstruction(vm_pointer);
         _ = c.SDL_PollEvent(event_pointer);
         sdlDraw(vm_pointer.display, renderer);
-        //   stop += 1;
         if (event.type == c.SDL_QUIT) {
             c.SDL_DestroyWindow(screen);
             c.SDL_Quit();
             return;
         }
 
-        keyboard = @constCast(event.key);
-
-        for (0..keys) |input| {
-            std.debug.print("{s} was pressed!", .{keyboard[input]});
-        }
+        keyboard = @constCast(c.SDL_GetKeyboardState(&keys));
     }
-
-    std.debug.print("{d}", .{virtual_machine.memory[512]});
 }
 
 test "simple test" {
