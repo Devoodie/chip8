@@ -13,7 +13,7 @@ Build Requirements:
 - <s>Implement Basic Opcode ( 00E0, 1NN, 6XNN, 7XNN, ANNN, DXYN ).</s>
 - <s>Import SDL2 C library.</s>
 - <s>Draw Pixels from Chip8's bitmap.</s>
-- Implement keyscans and input.
+- <s>Implement keyscans and input.</s>
 - Implement the rest of the Opcode.
 - Add Support for multiple screen sizes.
 - Add quality of life settings and some way to import settings from local files. 

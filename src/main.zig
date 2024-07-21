@@ -25,79 +25,79 @@ pub fn sdlDraw(bitmap: [32][64]u1, renderer: ?*c.SDL_Renderer) void {
     _ = c.SDL_RenderPresent(renderer);
 }
 
-pub fn GetKeys(key_array: [*c]u8, keyboard: *[15]u1) bool {
-    for (&keyboard) |*key| {
+pub fn GetKeys(key_array: [*c]u8, keyboard: *[16]u1) bool {
+    for (keyboard) |*key| {
         key.* = 0;
     }
-    var keys_set: bool = 0;
+    var keys_set: bool = true;
     if (key_array[c.SDL_SCANCODE_1] == 1) {
-        keys_set = 1;
+        keys_set = true;
         keyboard[0] = 1;
     }
     if (key_array[c.SDL_SCANCODE_2] == 1) {
-        keys_set = 1;
+        keys_set = true;
         keyboard[1] = 1;
     }
     if (key_array[c.SDL_SCANCODE_3] == 1) {
-        keys_set = 1;
+        keys_set = true;
         keyboard[2] = 1;
     }
     if (key_array[c.SDL_SCANCODE_4] == 1) {
-        keys_set = 1;
+        keys_set = true;
         keyboard[3] = 1;
     }
     if (key_array[c.SDL_SCANCODE_Q] == 1) {
-        keys_set = 1;
+        keys_set = true;
         keyboard[4] = 1;
     }
     if (key_array[c.SDL_SCANCODE_W] == 1) {
-        keys_set = 1;
+        keys_set = true;
         keyboard[5] = 1;
     }
     if (key_array[c.SDL_SCANCODE_E] == 1) {
-        keys_set = 1;
+        keys_set = true;
         keyboard[6] = 1;
     }
     if (key_array[c.SDL_SCANCODE_R] == 1) {
-        keys_set = 1;
+        keys_set = true;
         keyboard[7] = 1;
     }
     if (key_array[c.SDL_SCANCODE_A] == 1) {
-        keys_set = 1;
+        keys_set = true;
         keyboard[8] = 1;
     }
     if (key_array[c.SDL_SCANCODE_S] == 1) {
-        keys_set = 1;
+        keys_set = true;
         keyboard[9] = 1;
     }
     if (key_array[c.SDL_SCANCODE_D] == 1) {
-        keys_set = 1;
+        keys_set = true;
         keyboard[10] = 1;
     }
     if (key_array[c.SDL_SCANCODE_F] == 1) {
-        keys_set = 1;
+        keys_set = true;
         keyboard[11] = 1;
     }
     if (key_array[c.SDL_SCANCODE_Z] == 1) {
-        keys_set = 1;
+        keys_set = true;
         keyboard[12] = 1;
     }
     if (key_array[c.SDL_SCANCODE_X] == 1) {
-        keys_set = 1;
+        keys_set = true;
         keyboard[13] = 1;
     }
     if (key_array[c.SDL_SCANCODE_C] == 1) {
-        keys_set = 1;
+        keys_set = true;
         keyboard[14] = 1;
     }
     if (key_array[c.SDL_SCANCODE_V] == 1) {
-        keys_set = 1;
+        keys_set = true;
         keyboard[15] = 1;
     }
     return keys_set;
 }
 
-pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error!void {
+pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8) std.mem.Allocator.Error!void {
     var opcode: u16 = 0;
     opcode |= virtual_machine.memory[virtual_machine.pc];
     opcode <<= 8;
@@ -234,20 +234,25 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
             break :blk;
         },
         0xF000 => blk: {
-            switch(opcode & 0xFF){
+            switch (opcode & 0xFF) {
                 0x0A => {
                     const register = ((opcode & 0xF00) >> 8);
-                    if (GetKeys(keys, virtual_machine.keypad)){}
-
-                    
-
-            },
-            else => {
-                std.debug.print("0xF000 No Valid Opcode Found!", .{});
+                    if (GetKeys(keyboard, &virtual_machine.keypad)) {
+                        for (virtual_machine.keypad, 0..) |input, index| {
+                            if (input == 1) {
+                                virtual_machine.registers[register] = @intCast(index);
+                                break :blk;
+                            }
+                        }
+                    } else {
+                        return;
+                    }
+                },
+                else => {
+                    std.debug.print("0xF000 No Valid Opcode Found!", .{});
+                    break :blk;
+                },
             }
-
-
-            break :blk;
         },
         else => default: {
             std.debug.print("No Valid Opcode Found!", .{});
@@ -290,19 +295,17 @@ pub fn main() !void {
     var event: c.SDL_Event = undefined;
     const event_pointer: [*c]c.SDL_Event = @constCast(&event);
     var keyboard: [*c]u8 = undefined;
-    var keys: c_int = 0;
 
     while (true) {
-        _ = try executeInstruction(vm_pointer);
         _ = c.SDL_PollEvent(event_pointer);
+        keyboard = @constCast(c.SDL_GetKeyboardState(null));
+        _ = try executeInstruction(vm_pointer, keyboard);
         sdlDraw(vm_pointer.display, renderer);
         if (event.type == c.SDL_QUIT) {
             c.SDL_DestroyWindow(screen);
             c.SDL_Quit();
             return;
         }
-
-        keyboard = @constCast(c.SDL_GetKeyboardState(&keys));
     }
 }
 
