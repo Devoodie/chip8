@@ -25,7 +25,7 @@ pub fn sdlDraw(bitmap: [32][64]u1, renderer: ?*c.SDL_Renderer) void {
     _ = c.SDL_RenderPresent(renderer);
 }
 
-pub fn GetKeys(key_array: [*]u8, keyboard: [15]u1) bool {
+pub fn GetKeys(key_array: [*c]u8, keyboard: *[15]u1) bool {
     for (&keyboard) |*key| {
         key.* = 0;
     }
@@ -234,6 +234,19 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8) std.mem.Allocator.Error
             break :blk;
         },
         0xF000 => blk: {
+            switch(opcode & 0xFF){
+                0x0A => {
+                    const register = ((opcode & 0xF00) >> 8);
+                    if (GetKeys(keys, virtual_machine.keypad)){}
+
+                    
+
+            },
+            else => {
+                std.debug.print("0xF000 No Valid Opcode Found!", .{});
+            }
+
+
             break :blk;
         },
         else => default: {

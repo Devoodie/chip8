@@ -9,6 +9,7 @@ pub const chip8 = struct {
     //delay: u8,
     //sound: u8,
     registers: [16]u8 = undefined,
+    keypad: [15]u1 = undefined,
 
     pub fn init(self: *chip8) void {
         const fonts = [80]u8{
