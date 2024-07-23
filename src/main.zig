@@ -217,6 +217,8 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, rando
                 },
                 0x6 => {
                     virtual_machine.registers[register_x] = virtual_machine.registers[register_y];
+                    virtual_machine.registers[15] = virtual_machine.registers[register_x] & 0b1;
+                    virtual_machine.registers[register_x] >>= 1;
                     break :logic_operations;
                 },
                 0x7 => {
@@ -228,6 +230,13 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, rando
                     virtual_machine.registers[register_x] = virtual_machine.registers[register_y] - virtual_machine.registers[register_x];
                     break :logic_operations;
                 },
+                0xE => {
+                    virtual_machine.registers[register_x] = virtual_machine.registers[register_y];
+                    virtual_machine.registers[15] = virtual_machine.registers[register_x] & 0b10000000;
+                    virtual_machine.registers[register_x] <<= 1;
+                    break :logic_operations;
+                },
+
                 else => {
                     std.debug.print("0x8000 invalid last nib!", .{});
                     break :logic_operations;
