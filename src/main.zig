@@ -219,6 +219,15 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, rando
                     virtual_machine.registers[register_x] = virtual_machine.registers[register_y];
                     break :logic_operations;
                 },
+                0x7 => {
+                    if (virtual_machine.registers[register_y] > virtual_machine.registers[register_x]) {
+                        virtual_machine.registers[15] = 1;
+                    } else {
+                        virtual_machine.registers[15] = 0;
+                    }
+                    virtual_machine.registers[register_x] = virtual_machine.registers[register_y] - virtual_machine.registers[register_x];
+                    break :logic_operations;
+                },
                 else => {
                     std.debug.print("0x8000 invalid last nib!", .{});
                     break :logic_operations;
