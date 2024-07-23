@@ -32,19 +32,19 @@ pub fn GetKeys(key_array: [*c]u8, keyboard: *[16]u1) bool {
     var keys_set: bool = true;
     if (key_array[c.SDL_SCANCODE_1] == 1) {
         keys_set = true;
-        keyboard[0] = 1;
+        keyboard[1] = 1;
     }
     if (key_array[c.SDL_SCANCODE_2] == 1) {
         keys_set = true;
-        keyboard[1] = 1;
+        keyboard[2] = 1;
     }
     if (key_array[c.SDL_SCANCODE_3] == 1) {
         keys_set = true;
-        keyboard[2] = 1;
+        keyboard[3] = 1;
     }
     if (key_array[c.SDL_SCANCODE_4] == 1) {
         keys_set = true;
-        keyboard[3] = 1;
+        keyboard[0xC] = 1;
     }
     if (key_array[c.SDL_SCANCODE_Q] == 1) {
         keys_set = true;
@@ -60,44 +60,44 @@ pub fn GetKeys(key_array: [*c]u8, keyboard: *[16]u1) bool {
     }
     if (key_array[c.SDL_SCANCODE_R] == 1) {
         keys_set = true;
-        keyboard[7] = 1;
+        keyboard[0xD] = 1;
     }
     if (key_array[c.SDL_SCANCODE_A] == 1) {
         keys_set = true;
-        keyboard[8] = 1;
+        keyboard[7] = 1;
     }
     if (key_array[c.SDL_SCANCODE_S] == 1) {
         keys_set = true;
-        keyboard[9] = 1;
+        keyboard[8] = 1;
     }
     if (key_array[c.SDL_SCANCODE_D] == 1) {
         keys_set = true;
-        keyboard[10] = 1;
+        keyboard[9] = 1;
     }
     if (key_array[c.SDL_SCANCODE_F] == 1) {
         keys_set = true;
-        keyboard[11] = 1;
+        keyboard[0xE] = 1;
     }
     if (key_array[c.SDL_SCANCODE_Z] == 1) {
         keys_set = true;
-        keyboard[12] = 1;
+        keyboard[0xA] = 1;
     }
     if (key_array[c.SDL_SCANCODE_X] == 1) {
         keys_set = true;
-        keyboard[13] = 1;
+        keyboard[0] = 1;
     }
     if (key_array[c.SDL_SCANCODE_C] == 1) {
         keys_set = true;
-        keyboard[14] = 1;
+        keyboard[0xB] = 1;
     }
     if (key_array[c.SDL_SCANCODE_V] == 1) {
         keys_set = true;
-        keyboard[15] = 1;
+        keyboard[0xF] = 1;
     }
     return keys_set;
 }
 
-pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8) std.mem.Allocator.Error!void {
+pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, random: *std.Random) std.mem.Allocator.Error!void {
     var opcode: u16 = 0;
     opcode |= virtual_machine.memory[virtual_machine.pc];
     opcode <<= 8;
@@ -177,8 +177,53 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8) std.m
             virtual_machine.registers[register] += value;
             break :add_register;
         },
-        0x8000 => blk: {
-            break :blk;
+        0x8000 => logic_operations: {
+            const register_x: u4 = @intCast(opcode & 0xF00 >> 8);
+            const register_y: u4 = @intCast(opcode & 0xF0 >> 4);
+            switch (opcode & 0xF) {
+                0x0 => {
+                    virtual_machine.registers[register_x] = virtual_machine.registers[register_y];
+                    break :logic_operations;
+                },
+                0x1 => {
+                    virtual_machine.registers[register_x] |= virtual_machine.registers[register_y];
+                    break :logic_operations;
+                },
+                0x2 => {
+                    virtual_machine.registers[register_x] &= virtual_machine.registers[register_y];
+                    break :logic_operations;
+                },
+                0x3 => {
+                    virtual_machine.registers[register_x] ^= virtual_machine.registers[register_y];
+                    break :logic_operations;
+                },
+                0x4 => {
+                    if (virtual_machine.registers[register_x] + virtual_machine.registers[register_y] > 255) {
+                        virtual_machine.registers[15] = 1;
+                    } else {
+                        virtual_machine.registers[15] = 0;
+                    }
+                    virtual_machine.registers[register_x] += virtual_machine.registers[register_y];
+                    break :logic_operations;
+                },
+                0x5 => {
+                    if (virtual_machine.registers[register_x] > virtual_machine.registers[register_y]) {
+                        virtual_machine.registers[15] = 1;
+                    } else {
+                        virtual_machine.registers[15] = 0;
+                    }
+                    virtual_machine.registers[register_x] -= virtual_machine.registers[register_y];
+                    break :logic_operations;
+                },
+                0x6 => {
+                    virtual_machine.registers[register_x] = virtual_machine.registers[register_y];
+                    break :logic_operations;
+                },
+                else => {
+                    std.debug.print("0x8000 invalid last nib!", .{});
+                    break :logic_operations;
+                },
+            }
         },
         0x9000 => registers_not_equal: {
             const x_register: u4 = @intCast((opcode & 0xF00) >> 8);
@@ -198,6 +243,9 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8) std.m
             break :offset_jump;
         },
         0xC000 => blk: {
+            const register: u4 = @intCast((opcode & 0xF00) >> 8);
+            const value: u8 = @intCast((random.intRangeAtMost(u8, 0, 0xFF)) & opcode & 0xFF);
+            virtual_machine.registers[register] = value;
             break :blk;
         },
         0xD000 => draw: {
@@ -230,8 +278,31 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8) std.m
             }
             break :draw;
         },
-        0xE000 => blk: {
-            break :blk;
+        0xE000 => skip_key: {
+            switch (opcode & 0xFF) {
+                0x9E => {
+                    const key: u4 = @intCast((opcode & 0xF00) >> 8);
+                    if (GetKeys(keyboard, &virtual_machine.keypad) and virtual_machine.keypad[key] == 1) {
+                        virtual_machine.pc += 2;
+                        break :skip_key;
+                    }
+                    break :skip_key;
+                },
+                0xA1 => {
+                    const key: u4 = @intCast((opcode & 0xF00) >> 8);
+                    if (!(GetKeys(keyboard, &virtual_machine.keypad)) or !(virtual_machine.keypad[key] == 1)) {
+                        virtual_machine.pc += 2;
+                        break :skip_key;
+                    }
+                    break :skip_key;
+                },
+                else => {
+                    std.debug.print("0xE000 No Valid Opcode Found!", .{});
+                    break :skip_key;
+                },
+            }
+
+            break :skip_key;
         },
         0xF000 => blk: {
             switch (opcode & 0xFF) {
@@ -284,10 +355,17 @@ pub fn main() !void {
 
     allocator.free(instructions);
 
+    var xoshiro = std.Random.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        try std.posix.getrandom(std.mem.asBytes(&seed));
+        break :blk seed;
+    });
+
     if (c.SDL_Init(c.SDL_INIT_VIDEO) != 0) {
         std.debug.print("Could not init SDL: {s}", .{c.SDL_GetError()});
         return;
     }
+
     const screen = c.SDL_CreateWindow("Dev's Chip8", c.SDL_WINDOWPOS_UNDEFINED, c.SDL_WINDOWPOS_UNDEFINED, 1280, 640, 0);
     const renderer = c.SDL_CreateRenderer(screen, -1, c.SDL_RENDERER_SOFTWARE);
     _ = c.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -299,7 +377,7 @@ pub fn main() !void {
     while (true) {
         _ = c.SDL_PollEvent(event_pointer);
         keyboard = @constCast(c.SDL_GetKeyboardState(null));
-        _ = try executeInstruction(vm_pointer, keyboard);
+        _ = try executeInstruction(vm_pointer, keyboard, @constCast(&xoshiro.random()));
         sdlDraw(vm_pointer.display, renderer);
         if (event.type == c.SDL_QUIT) {
             c.SDL_DestroyWindow(screen);
