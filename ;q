@@ -25,11 +25,11 @@ pub fn sdlDraw(bitmap: [32][64]u1, renderer: ?*c.SDL_Renderer) void {
     _ = c.SDL_RenderPresent(renderer);
 }
 
-pub fn wait(timer: *std.time.Timer, executed_instructions: *u16) void {
+pub fn wait(timer: std.time.Timer, executed_instructions: u16) void {
     if (timer.read() >= 1000000000) {
-        executed_instructions.* = 0;
+        executed_instructions = 0;
         timer.reset();
-    } else if (executed_instructions.* > 700) {
+    } else if (executed_instructions > 700) {
         std.time.sleep(1000000000 - timer.read());
     }
 }
@@ -106,7 +106,7 @@ pub fn GetKeys(key_array: [*c]u8, keyboard: *[16]u1) bool {
     return keys_set;
 }
 
-pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, random: *std.Random) std.mem.Allocator.Error!void {
+pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, random: std.Random) std.mem.Allocator.Error!void {
     var opcode: u16 = 0;
     opcode |= virtual_machine.memory[virtual_machine.pc];
     opcode <<= 8;
@@ -414,8 +414,8 @@ pub fn main() !void {
 
         keyboard = @constCast(c.SDL_GetKeyboardState(null));
 
-        wait(@constCast(&timer), &executed_intstructions);
-        _ = try executeInstruction(vm_pointer, keyboard, @constCast(&xoshiro.random()));
+        wait(&timer, &executed_intstructions);
+        _ = try executeInstruction(vm_pointer, keyboard, &xoshiro.random());
         executed_intstructions += 1;
         sdlDraw(vm_pointer.display, renderer);
     }
