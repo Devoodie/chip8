@@ -142,11 +142,11 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, rando
             //           std.debug.print("Value {x}\n", .{virtual_machine.memory[virtual_machine.pc]});
             return;
         },
-        0x2000 => subroutine: {
+        0x2000 => {
             const address = opcode & 0xFFF;
             _ = try virtual_machine.stack.append(virtual_machine.pc);
             virtual_machine.pc = address;
-            break :subroutine;
+            return;
         },
         0x3000 => equal_skip: {
             const value: u8 = @intCast(opcode & 0xFF);
@@ -187,8 +187,8 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, rando
             break :add_register;
         },
         0x8000 => logic_operations: {
-            const register_x: u4 = @intCast(opcode & 0xF00 >> 8);
-            const register_y: u4 = @intCast(opcode & 0xF0 >> 4);
+            const register_x: u4 = @intCast((opcode & 0xF00) >> 8);
+            const register_y: u4 = @intCast((opcode & 0xF0) >> 4);
             switch (opcode & 0xF) {
                 0x0 => {
                     virtual_machine.registers[register_x] = virtual_machine.registers[register_y];
@@ -365,7 +365,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
-    const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/chip8splash.ch8", .{});
+    const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/3-corax+.ch8", .{});
     _ = try rom.seekTo(0);
     const rom_data = try rom.stat();
 
