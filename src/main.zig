@@ -25,7 +25,7 @@ pub fn sdlDraw(bitmap: [32][64]u1, renderer: ?*c.SDL_Renderer) void {
     _ = c.SDL_RenderPresent(renderer);
 }
 
-pub fn wait(timer: *std.time.Timer, executed_instructions: *u16) void {
+pub fn wait(timer: std.time.Timer, executed_instructions: *u16) void {
     if (timer.read() >= 1000000000) {
         executed_instructions.* = 0;
         timer.reset();
@@ -33,6 +33,15 @@ pub fn wait(timer: *std.time.Timer, executed_instructions: *u16) void {
         std.time.sleep(1000000000 - timer.read());
     }
 }
+
+pub fn decrementTimers(timer: std.time.Timer, delay: *u8) void {
+    var iterations = 0;
+    while(true){
+        if(timer){}
+
+    }
+}
+
 
 pub fn GetKeys(key_array: [*c]u8, keyboard: *[16]u1) bool {
     for (keyboard) |*key| {
@@ -414,7 +423,7 @@ pub fn main() !void {
 
         keyboard = @constCast(c.SDL_GetKeyboardState(null));
 
-        wait(@constCast(&timer), &executed_intstructions);
+        wait(timer, &executed_intstructions);
         _ = try executeInstruction(vm_pointer, keyboard, @constCast(&xoshiro.random()));
         executed_intstructions += 1;
         sdlDraw(vm_pointer.display, renderer);
