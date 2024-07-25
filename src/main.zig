@@ -121,7 +121,7 @@ pub fn GetKeys(key_array: [*c]u8, keyboard: *[16]u1) bool {
     return keys_set;
 }
 
-pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, random: *std.Random) std.mem.Allocator.Error!void {
+pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, random: *std.Random, mutex: *std.Thread.Mutex) std.mem.Allocator.Error!void {
     var opcode: u16 = 0;
     opcode |= virtual_machine.memory[virtual_machine.pc];
     opcode <<= 8;
@@ -347,6 +347,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, rando
             break :skip_key;
         },
         0xF000 => blk: {
+            const nib: u4 = @intCast((opcode & 0xF00) >> 8);
             switch (opcode & 0xFF) {
                 0x0A => {
                     const register = ((opcode & 0xF00) >> 8);
@@ -361,6 +362,49 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, rando
                         return;
                     }
                 },
+                0x07 => {
+                    mutex.lock();
+                    virtual_machine.registers[nib] = virtual_machine.delay;
+                    mutex.unlock();
+                    break :blk;
+                },
+                0x15 => {
+                    mutex.lock();
+                    virtual_machine.delay = virtual_machine.registers[nib];
+                    mutex.unlock();
+                    break :blk;
+                },
+                0x18 => {
+                    mutex.lock();
+                    virtual_machine.sound = virtual_machine.registers[nib];
+                    mutex.unlock();
+                    break :blk;
+                },
+                0x1E => {
+                    virtual_machine.index += virtual_machine.registers[nib];
+                    break :blk;
+                },
+                0x29 => {
+                    virtual_machine.index = 80 + (virtual_machine.registers[nib] * 5);
+                    break :blk;
+                },
+                0x33 => {
+                    const value = virtual_machine.registers[nib];
+                    const digit_2 = value % 100;
+                    const digit_1 = digit_2 % 10;
+                    const digit_3 = value - (digit_1 + digit_2);
+                    virtual_machine.memory[virtual_machine.index] = digit_1;
+                    virtual_machine.memory[virtual_machine.index + 1] = digit_2;
+                    virtual_machine.memory[virtual_machine.index + 2] = digit_3;
+                    break :blk;
+                },
+                //                0x55 => {
+                //                   for (virtual_machine.registers[0..virtual_machine.registers[nib]], 0..) |value, index| {
+                //                      const i: u8 = @intCast(index);
+                //                     virtual_machine.memory[virtual_machine.index + i] = value;
+                //                }
+                //               break :blk;
+                //          },
                 else => {
                     std.debug.print("0xF000 No Valid Opcode Found!", .{});
                     break :blk;
@@ -441,7 +485,7 @@ pub fn main() !void {
         timerThread = try std.Thread.spawn(.{}, decrementTimers, .{ timer_pointer, &virtual_machine.delay, &virtual_machine.sound, mutex_pointer });
         defer timerThread.join();
 
-        _ = try executeInstruction(vm_pointer, keyboard, @constCast(&xoshiro.random()));
+        _ = try executeInstruction(vm_pointer, keyboard, @constCast(&xoshiro.random()), mutex_pointer);
         executed_intstructions += 1;
         sdlDraw(vm_pointer.display, renderer);
     }
