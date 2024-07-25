@@ -29,7 +29,7 @@ pub fn wait(timer: *std.time.Timer, executed_instructions: *u16) void {
     if (timer.read() >= 1000000000) {
         executed_instructions.* = 0;
         timer.reset();
-    } else if (executed_instructions.* > 700) {
+    } else if (executed_instructions.* > 600) {
         std.time.sleep(1000000000 - timer.read());
     }
 }
@@ -390,21 +390,30 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, rando
                 },
                 0x33 => {
                     const value = virtual_machine.registers[nib];
-                    const digit_2 = value % 100;
-                    const digit_1 = digit_2 % 10;
-                    const digit_3 = value - (digit_1 + digit_2);
-                    virtual_machine.memory[virtual_machine.index] = digit_1;
+                    const digit_1 = (value % 100) % 10;
+                    const digit_2 = ((value % 100) - digit_1) / 10;
+                    const digit_3 = ((value - (digit_1 + digit_2))) / 100;
+                    virtual_machine.memory[virtual_machine.index] = digit_3;
                     virtual_machine.memory[virtual_machine.index + 1] = digit_2;
-                    virtual_machine.memory[virtual_machine.index + 2] = digit_3;
+                    virtual_machine.memory[virtual_machine.index + 2] = digit_1;
                     break :blk;
                 },
-                //                0x55 => {
-                //                   for (virtual_machine.registers[0..virtual_machine.registers[nib]], 0..) |value, index| {
-                //                      const i: u8 = @intCast(index);
-                //                     virtual_machine.memory[virtual_machine.index + i] = value;
-                //                }
-                //               break :blk;
-                //          },
+                0x55 => {
+                    var i: u8 = 0;
+                    for (virtual_machine.registers[0 .. nib + 1], 0..) |value, index| {
+                        i = @intCast(index);
+                        virtual_machine.memory[virtual_machine.index + i] = value;
+                    }
+                    break :blk;
+                },
+                0x65 => {
+                    var i: u8 = 0;
+                    for (virtual_machine.registers[0 .. nib + 1], 0..) |*value, index| {
+                        i = @intCast(index);
+                        value.* = virtual_machine.memory[virtual_machine.index + i];
+                    }
+                    break :blk;
+                },
                 else => {
                     std.debug.print("0xF000 No Valid Opcode Found!", .{});
                     break :blk;
@@ -427,7 +436,7 @@ pub fn main() !void {
     const mutex: std.Thread.Mutex = .{};
     const mutex_pointer = @constCast(&mutex);
 
-    const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/3-corax+.ch8", .{});
+    const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/c8games/PONG", .{});
     _ = try rom.seekTo(0);
     const rom_data = try rom.stat();
 
@@ -486,6 +495,7 @@ pub fn main() !void {
         defer timerThread.join();
 
         _ = try executeInstruction(vm_pointer, keyboard, @constCast(&xoshiro.random()), mutex_pointer);
+        std.time.sleep(1660000);
         executed_intstructions += 1;
         sdlDraw(vm_pointer.display, renderer);
     }
