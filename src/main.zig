@@ -25,7 +25,7 @@ pub fn sdlDraw(bitmap: [32][64]u1, renderer: ?*c.SDL_Renderer) void {
     _ = c.SDL_RenderPresent(renderer);
 }
 
-pub fn wait(timer: std.time.Timer, executed_instructions: *u16) void {
+pub fn wait(timer: *std.time.Timer, executed_instructions: *u16) void {
     if (timer.read() >= 1000000000) {
         executed_instructions.* = 0;
         timer.reset();
@@ -34,14 +34,20 @@ pub fn wait(timer: std.time.Timer, executed_instructions: *u16) void {
     }
 }
 
-pub fn decrementTimers(timer: std.time.Timer, delay: *u8) void {
-    var iterations = 0;
-    while(true){
-        if(timer){}
-
+pub fn decrementTimers(timer: *std.time.Timer, delay: *u8, sound: *u8, mutex: *std.Thread.Mutex) void {
+    var iterations: u8 = 0;
+    while (timer.read() < 1000000000 and iterations <= 60) {
+        mutex.lock();
+        if (delay.* > 0) {
+            delay.* -= 1;
+        }
+        if (sound.* > 0) {
+            sound.* -= 1;
+        }
+        iterations += 1;
+        mutex.unlock();
     }
 }
-
 
 pub fn GetKeys(key_array: [*c]u8, keyboard: *[16]u1) bool {
     for (keyboard) |*key| {
@@ -374,6 +380,9 @@ pub fn main() !void {
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
+    const mutex: std.Thread.Mutex = .{};
+    const mutex_pointer = @constCast(&mutex);
+
     const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/3-corax+.ch8", .{});
     _ = try rom.seekTo(0);
     const rom_data = try rom.stat();
@@ -411,19 +420,27 @@ pub fn main() !void {
     var keyboard: [*c]u8 = undefined;
 
     const timer = try std.time.Timer.start();
+    const timer_pointer = @constCast(&timer);
     var executed_intstructions: u16 = 0;
+
+    var timerThread = try std.Thread.spawn(.{}, decrementTimers, .{ timer_pointer, &virtual_machine.delay, &virtual_machine.sound, mutex_pointer });
 
     while (true) {
         _ = c.SDL_PollEvent(event_pointer);
         if (event.type == c.SDL_QUIT) {
             c.SDL_DestroyWindow(screen);
             c.SDL_Quit();
+            timerThread.join();
             return;
         }
 
         keyboard = @constCast(c.SDL_GetKeyboardState(null));
 
-        wait(timer, &executed_intstructions);
+        wait(timer_pointer, &executed_intstructions);
+
+        timerThread = try std.Thread.spawn(.{}, decrementTimers, .{ timer_pointer, &virtual_machine.delay, &virtual_machine.sound, mutex_pointer });
+        defer timerThread.join();
+
         _ = try executeInstruction(vm_pointer, keyboard, @constCast(&xoshiro.random()));
         executed_intstructions += 1;
         sdlDraw(vm_pointer.display, renderer);

@@ -6,8 +6,8 @@ pub const chip8 = struct {
     index: u16 = 0,
     display: [32][64]u1 = undefined,
     stack: std.ArrayList(u16),
-    //delay: u8,
-    //sound: u8,
+    delay: u8 = 0,
+    sound: u8 = 0,
     registers: [16]u8 = undefined,
     keypad: [16]u1 = undefined,
 
