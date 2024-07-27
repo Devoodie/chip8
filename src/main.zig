@@ -25,31 +25,29 @@ pub fn sdlDraw(bitmap: [32][64]u1, renderer: ?*c.SDL_Renderer) void {
     _ = c.SDL_RenderPresent(renderer);
 }
 
-pub fn wait(timer: *std.time.Timer, executed_instructions: *u16) void {
-    if (timer.read() >= 1000000000) {
-        executed_instructions.* = 0;
-        timer.reset();
-    } else if (executed_instructions.* > 600) {
-        std.time.sleep(1000000000 - timer.read());
-    }
-}
+//pub fn wait(timer: *std.time.Timer, executed_instructions: *u16) void {
+//    if (timer.read() >= 1000000000) {
+//       executed_instructions.* = 0;
+//      timer.reset();
+// } else if (executed_instructions.* > 600) {
+//    std.time.sleep(1000000000 - timer.read());
+// }
+//}
 
-pub fn decrementTimers(timer: *std.time.Timer, delay: *u8, sound: *u8, mutex: *std.Thread.Mutex) void {
-    var iterations: u8 = 0;
-    while (timer.read() < 1000000000 and iterations <= 60) {
+pub fn decrementTimers(delay: *u8, sound: *u8, mutex: *std.Thread.Mutex) void {
+    if (delay.* > 0) {
         mutex.lock();
-        if (delay.* > 0) {
-            delay.* -= 1;
-        }
-        if (sound.* > 0) {
-            sound.* -= 1;
-        }
-        iterations += 1;
-        mutex.unlock();
+        delay.* -= 1;
     }
+    if (sound.* > 0) {
+        mutex.lock();
+        sound.* -= 1;
+    }
+    mutex.unlock();
+    //    std.time.sleep(16666666);
 }
 
-pub fn GetKeys(key_array: [*c]u8, keyboard: *[16]u1) bool {
+pub fn GetKeys(key_array: [*c]u8, keyboard: *[16]u1) void {
     for (keyboard) |*key| {
         key.* = 0;
     }
@@ -57,6 +55,7 @@ pub fn GetKeys(key_array: [*c]u8, keyboard: *[16]u1) bool {
     if (key_array[c.SDL_SCANCODE_1] == 1) {
         keys_set = true;
         keyboard[1] = 1;
+        std.debug.print("1 was pressed", .{});
     }
     if (key_array[c.SDL_SCANCODE_2] == 1) {
         keys_set = true;
@@ -118,10 +117,9 @@ pub fn GetKeys(key_array: [*c]u8, keyboard: *[16]u1) bool {
         keys_set = true;
         keyboard[0xF] = 1;
     }
-    return keys_set;
 }
 
-pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, random: *std.Random, mutex: *std.Thread.Mutex) std.mem.Allocator.Error!void {
+pub fn executeInstruction(virtual_machine: *chip8.chip8, random: *std.Random, mutex: *std.Thread.Mutex) std.mem.Allocator.Error!void {
     var opcode: u16 = 0;
     opcode |= virtual_machine.memory[virtual_machine.pc];
     opcode <<= 8;
@@ -324,7 +322,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, rando
             switch (opcode & 0xFF) {
                 0x9E => {
                     const key: u4 = @intCast((opcode & 0xF00) >> 8);
-                    if (GetKeys(keyboard, &virtual_machine.keypad) and virtual_machine.keypad[key] == 1) {
+                    if (virtual_machine.keypad[key] == 1) {
                         virtual_machine.pc += 2;
                         break :skip_key;
                     }
@@ -332,7 +330,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, rando
                 },
                 0xA1 => {
                     const key: u4 = @intCast((opcode & 0xF00) >> 8);
-                    if (!(GetKeys(keyboard, &virtual_machine.keypad)) or !(virtual_machine.keypad[key] == 1)) {
+                    if (!(virtual_machine.keypad[key] == 1)) {
                         virtual_machine.pc += 2;
                         break :skip_key;
                     }
@@ -351,16 +349,13 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, rando
             switch (opcode & 0xFF) {
                 0x0A => {
                     const register = ((opcode & 0xF00) >> 8);
-                    if (GetKeys(keyboard, &virtual_machine.keypad)) {
-                        for (virtual_machine.keypad, 0..) |input, index| {
-                            if (input == 1) {
-                                virtual_machine.registers[register] = @intCast(index);
-                                break :blk;
-                            }
+                    for (virtual_machine.keypad, 0..) |input, index| {
+                        if (input == 1) {
+                            virtual_machine.registers[register] = @intCast(index);
+                            break :blk;
                         }
-                    } else {
-                        return;
                     }
+                    return;
                 },
                 0x07 => {
                     mutex.lock();
@@ -426,6 +421,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, rando
         },
     }
     virtual_machine.pc += 2;
+    std.time.sleep(std.time.ns_per_s / 900);
 }
 
 pub fn main() !void {
@@ -436,7 +432,7 @@ pub fn main() !void {
     const mutex: std.Thread.Mutex = .{};
     const mutex_pointer = @constCast(&mutex);
 
-    const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/c8games/PONG", .{});
+    const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/6-keypad.ch8", .{});
     _ = try rom.seekTo(0);
     const rom_data = try rom.stat();
 
@@ -472,11 +468,10 @@ pub fn main() !void {
     const event_pointer: [*c]c.SDL_Event = @constCast(&event);
     var keyboard: [*c]u8 = undefined;
 
-    const timer = try std.time.Timer.start();
-    const timer_pointer = @constCast(&timer);
-    var executed_intstructions: u16 = 0;
+    //const timer = try std.time.Timer.start();
+    //const timer_pointer = @constCast(&timer);
 
-    var timerThread = try std.Thread.spawn(.{}, decrementTimers, .{ timer_pointer, &virtual_machine.delay, &virtual_machine.sound, mutex_pointer });
+    var timerThread: std.Thread = undefined;
 
     while (true) {
         _ = c.SDL_PollEvent(event_pointer);
@@ -488,15 +483,16 @@ pub fn main() !void {
         }
 
         keyboard = @constCast(c.SDL_GetKeyboardState(null));
+        GetKeys(keyboard, &virtual_machine.keypad);
 
-        wait(timer_pointer, &executed_intstructions);
+        //        wait(timer_pointer, &executed_intstructions);
+        {
+            timerThread = try std.Thread.spawn(.{}, decrementTimers, .{ &virtual_machine.delay, &virtual_machine.sound, mutex_pointer });
+            defer timerThread.join();
 
-        timerThread = try std.Thread.spawn(.{}, decrementTimers, .{ timer_pointer, &virtual_machine.delay, &virtual_machine.sound, mutex_pointer });
-        defer timerThread.join();
-
-        _ = try executeInstruction(vm_pointer, keyboard, @constCast(&xoshiro.random()), mutex_pointer);
-        std.time.sleep(1660000);
-        executed_intstructions += 1;
+            _ = try executeInstruction(vm_pointer, @constCast(&xoshiro.random()), mutex_pointer);
+        }
+        //        std.time.sleep(1660000);
         sdlDraw(vm_pointer.display, renderer);
     }
 }
