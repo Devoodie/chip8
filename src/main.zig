@@ -15,7 +15,6 @@ pub fn sdlDraw(bitmap: [32][64]u1, renderer: ?*c.SDL_Renderer) void {
                 screen_x = @as(c_int, @intCast(column_index)) * 20;
                 screen_y = @as(c_int, @intCast(row_index)) * 20;
                 _ = c.SDL_RenderDrawLine(renderer, screen_x, screen_y, screen_x + 20, screen_y);
-
                 for (0..20) |i| {
                     _ = c.SDL_RenderDrawLine(renderer, screen_x + @as(c_int, @intCast(i)), screen_y, screen_x + @as(c_int, @intCast(i)), screen_y + 20);
                 }
@@ -122,7 +121,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, random: *std.Random, mu
     opcode |= virtual_machine.memory[virtual_machine.pc];
     opcode <<= 8;
     opcode |= virtual_machine.memory[virtual_machine.pc + 1];
-    //   std.debug.print("Opcode: 0x{x}\n", .{opcode});
+    std.debug.print("Opcode: 0x{x}\n", .{opcode});
 
     switch (opcode & 0xF000) {
         0x0000 => blk: {
