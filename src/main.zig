@@ -34,17 +34,15 @@ pub fn sdlDraw(bitmap: [32][64]u1, renderer: ?*c.SDL_Renderer) void {
 // }
 //}
 
-pub fn decrementTimers(delay: *u8, sound: *u8, mutex: *std.Thread.Mutex) void {
+pub fn decrementTimers(delay: *u8, sound: *u8, previous_time: i128) void {
+    const decrement = @as(u8, @intCast(@divExact((std.time.nanoTimestamp() - previous_time), 16666666)));
+
     if (delay.* > 0) {
-        mutex.lock();
-        delay.* -= 1;
+        delay.* -= decrement;
     }
     if (sound.* > 0) {
-        mutex.lock();
-        sound.* -= 1;
+        sound.* -= decrement;
     }
-    mutex.unlock();
-    //    std.time.sleep(16666666);
 }
 
 pub fn GetKeys(key_array: [*c]u8, keyboard: *[16]u1) void {
@@ -432,7 +430,7 @@ pub fn main() !void {
     const mutex: std.Thread.Mutex = .{};
     const mutex_pointer = @constCast(&mutex);
 
-    const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/6-keypad.ch8", .{});
+    const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/c8games/INVADERS", .{});
     _ = try rom.seekTo(0);
     const rom_data = try rom.stat();
 
@@ -471,28 +469,25 @@ pub fn main() !void {
     //const timer = try std.time.Timer.start();
     //const timer_pointer = @constCast(&timer);
 
-    var timerThread: std.Thread = undefined;
+    var time: i128 = 0;
 
     while (true) {
         _ = c.SDL_PollEvent(event_pointer);
         if (event.type == c.SDL_QUIT) {
             c.SDL_DestroyWindow(screen);
             c.SDL_Quit();
-            timerThread.join();
             return;
         }
 
         keyboard = @constCast(c.SDL_GetKeyboardState(null));
         GetKeys(keyboard, &virtual_machine.keypad);
 
-        //        wait(timer_pointer, &executed_intstructions);
-        {
-            timerThread = try std.Thread.spawn(.{}, decrementTimers, .{ &virtual_machine.delay, &virtual_machine.sound, mutex_pointer });
-            defer timerThread.join();
+        decrementTimers(&virtual_machine.delay, &virtual_machine.sound, time);
+        time = std.time.nanoTimestamp();
 
-            _ = try executeInstruction(vm_pointer, @constCast(&xoshiro.random()), mutex_pointer);
-        }
-        //        std.time.sleep(1660000);
+        //        wait(timer_pointer, &executed_intstructions);
+
+        _ = try executeInstruction(vm_pointer, @constCast(&xoshiro.random()), mutex_pointer);
         sdlDraw(vm_pointer.display, renderer);
     }
 }
