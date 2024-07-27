@@ -35,12 +35,22 @@ pub fn sdlDraw(bitmap: [32][64]u1, renderer: ?*c.SDL_Renderer) void {
 
 pub fn decrementTimers(delay: *u8, sound: *u8, previous_time: i128) void {
     const decrement = @as(u8, @intCast(@divExact((std.time.nanoTimestamp() - previous_time), 16666666)));
-
     if (delay.* > 0) {
-        delay.* -= decrement;
+        const delay_result = @subWithOverflow(delay.*, decrement);
+        if (delay_result[1] < 0) {
+            delay.* -= decrement;
+        } else {
+            delay.* = 0;
+        }
     }
+
     if (sound.* > 0) {
-        sound.* -= decrement;
+        const sound_result = @subWithOverflow(sound.*, decrement);
+        if (sound_result[1] < 0) {
+            sound.* -= decrement;
+        } else {
+            delay.* = 0;
+        }
     }
 }
 
@@ -116,7 +126,7 @@ pub fn GetKeys(key_array: [*c]u8, keyboard: *[16]u1) void {
     }
 }
 
-pub fn executeInstruction(virtual_machine: *chip8.chip8, random: *std.Random, mutex: *std.Thread.Mutex) std.mem.Allocator.Error!void {
+pub fn executeInstruction(virtual_machine: *chip8.chip8, random: *std.Random) std.mem.Allocator.Error!void {
     var opcode: u16 = 0;
     opcode |= virtual_machine.memory[virtual_machine.pc];
     opcode <<= 8;
@@ -355,21 +365,15 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, random: *std.Random, mu
                     return;
                 },
                 0x07 => {
-                    mutex.lock();
                     virtual_machine.registers[nib] = virtual_machine.delay;
-                    mutex.unlock();
                     break :blk;
                 },
                 0x15 => {
-                    mutex.lock();
                     virtual_machine.delay = virtual_machine.registers[nib];
-                    mutex.unlock();
                     break :blk;
                 },
                 0x18 => {
-                    mutex.lock();
                     virtual_machine.sound = virtual_machine.registers[nib];
-                    mutex.unlock();
                     break :blk;
                 },
                 0x1E => {
@@ -425,9 +429,6 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
-
-    const mutex: std.Thread.Mutex = .{};
-    const mutex_pointer = @constCast(&mutex);
 
     const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/c8games/INVADERS", .{});
     _ = try rom.seekTo(0);
@@ -486,7 +487,7 @@ pub fn main() !void {
 
         //        wait(timer_pointer, &executed_intstructions);
 
-        _ = try executeInstruction(vm_pointer, @constCast(&xoshiro.random()), mutex_pointer);
+        _ = try executeInstruction(vm_pointer, @constCast(&xoshiro.random()));
         sdlDraw(vm_pointer.display, renderer);
     }
 }
