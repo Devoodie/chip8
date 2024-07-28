@@ -38,7 +38,7 @@ pub fn decrementTimers(delay: *u8, sound: *u8, previous_time: i128) void {
     if (delay.* > 0) {
         const delay_result = @subWithOverflow(delay.*, decrement);
         if (delay_result[1] < 0) {
-            delay.* -= decrement;
+            delay.* -= decrement[0];
         } else {
             delay.* = 0;
         }
@@ -47,7 +47,7 @@ pub fn decrementTimers(delay: *u8, sound: *u8, previous_time: i128) void {
     if (sound.* > 0) {
         const sound_result = @subWithOverflow(sound.*, decrement);
         if (sound_result[1] < 0) {
-            sound.* -= decrement;
+            sound.* -= decrement[0];
         } else {
             delay.* = 0;
         }
@@ -227,42 +227,58 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, random: *std.Random) st
                     break :logic_operations;
                 },
                 0x4 => {
-                    if (virtual_machine.registers[register_x] + virtual_machine.registers[register_y] > 255) {
-                        virtual_machine.registers[15] = 1;
-                    } else {
+                    const sum = (@addWithOverflow(virtual_machine.registers[register_x], virtual_machine.registers[register_y]));
+                    virtual_machine.registers[register_x] = sum[0];
+
+                    if (sum[1] <= 0) {
                         virtual_machine.registers[15] = 0;
+                    } else {
+                        virtual_machine.registers[15] = 1;
                     }
-                    virtual_machine.registers[register_x] += virtual_machine.registers[register_y];
                     break :logic_operations;
                 },
                 0x5 => {
-                    if (virtual_machine.registers[register_x] > virtual_machine.registers[register_y]) {
+                    const difference = @subWithOverflow(virtual_machine.registers[register_x], virtual_machine.registers[register_y]);
+                    virtual_machine.registers[register_x] = difference[0];
+
+                    if (difference[1] <= 0) {
                         virtual_machine.registers[15] = 1;
                     } else {
                         virtual_machine.registers[15] = 0;
                     }
-                    virtual_machine.registers[register_x] -= virtual_machine.registers[register_y];
                     break :logic_operations;
                 },
                 0x6 => {
                     virtual_machine.registers[register_x] = virtual_machine.registers[register_y];
-                    virtual_machine.registers[15] = virtual_machine.registers[register_x] & 0b1;
+                    const result = virtual_machine.registers[register_x] & 0b1;
                     virtual_machine.registers[register_x] >>= 1;
-                    break :logic_operations;
-                },
-                0x7 => {
-                    if (virtual_machine.registers[register_y] > virtual_machine.registers[register_x]) {
+                    if (result == 1) {
                         virtual_machine.registers[15] = 1;
                     } else {
                         virtual_machine.registers[15] = 0;
                     }
-                    virtual_machine.registers[register_x] = virtual_machine.registers[register_y] - virtual_machine.registers[register_x];
+                    break :logic_operations;
+                },
+                0x7 => {
+                    const difference = @subWithOverflow(virtual_machine.registers[register_y], virtual_machine.registers[register_x]);
+
+                    virtual_machine.registers[register_x] = difference[0];
+                    if (difference[1] <= 0) {
+                        virtual_machine.registers[15] = 1;
+                    } else {
+                        virtual_machine.registers[15] = 0;
+                    }
                     break :logic_operations;
                 },
                 0xE => {
                     virtual_machine.registers[register_x] = virtual_machine.registers[register_y];
-                    virtual_machine.registers[15] = virtual_machine.registers[register_x] & 0b10000000;
-                    virtual_machine.registers[register_x] <<= 1;
+                    const result = @shlWithOverflow(virtual_machine.registers[register_x], 1);
+                    virtual_machine.registers[register_x] = result[0];
+                    if (result[1] <= 0) {
+                        virtual_machine.registers[15] = 0;
+                    } else {
+                        virtual_machine.registers[15] = 1;
+                    }
                     break :logic_operations;
                 },
 
@@ -430,7 +446,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
-    const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/c8games/INVADERS", .{});
+    const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/c8games/PONG", .{});
     _ = try rom.seekTo(0);
     const rom_data = try rom.stat();
 
@@ -469,7 +485,7 @@ pub fn main() !void {
     //const timer = try std.time.Timer.start();
     //const timer_pointer = @constCast(&timer);
 
-    var time: i128 = 0;
+    var time: i128 = 1;
 
     while (true) {
         _ = c.SDL_PollEvent(event_pointer);
