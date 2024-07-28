@@ -15,7 +15,6 @@ pub fn sdlDraw(bitmap: [32][64]u1, renderer: ?*c.SDL_Renderer) void {
                 screen_x = @as(c_int, @intCast(column_index)) * 20;
                 screen_y = @as(c_int, @intCast(row_index)) * 20;
                 _ = c.SDL_RenderDrawLine(renderer, screen_x, screen_y, screen_x + 20, screen_y);
-
                 for (0..20) |i| {
                     _ = c.SDL_RenderDrawLine(renderer, screen_x + @as(c_int, @intCast(i)), screen_y, screen_x + @as(c_int, @intCast(i)), screen_y + 20);
                 }
@@ -25,31 +24,37 @@ pub fn sdlDraw(bitmap: [32][64]u1, renderer: ?*c.SDL_Renderer) void {
     _ = c.SDL_RenderPresent(renderer);
 }
 
-pub fn wait(timer: *std.time.Timer, executed_instructions: *u16) void {
-    if (timer.read() >= 1000000000) {
-        executed_instructions.* = 0;
-        timer.reset();
-    } else if (executed_instructions.* > 600) {
-        std.time.sleep(1000000000 - timer.read());
+//pub fn wait(timer: *std.time.Timer, executed_instructions: *u16) void {
+//    if (timer.read() >= 1000000000) {
+//       executed_instructions.* = 0;
+//      timer.reset();
+// } else if (executed_instructions.* > 600) {
+//    std.time.sleep(1000000000 - timer.read());
+// }
+//}
+
+pub fn decrementTimers(delay: *u8, sound: *u8, previous_time: i128) void {
+    const decrement = @as(u8, @intCast(@divExact((std.time.nanoTimestamp() - previous_time), 16666666)));
+    if (delay.* > 0) {
+        const delay_result = @subWithOverflow(delay.*, decrement);
+        if (delay_result[1] < 0) {
+            delay.* -= decrement[0];
+        } else {
+            delay.* = 0;
+        }
+    }
+
+    if (sound.* > 0) {
+        const sound_result = @subWithOverflow(sound.*, decrement);
+        if (sound_result[1] < 0) {
+            sound.* -= decrement[0];
+        } else {
+            delay.* = 0;
+        }
     }
 }
 
-pub fn decrementTimers(timer: *std.time.Timer, delay: *u8, sound: *u8, mutex: *std.Thread.Mutex) void {
-    var iterations: u8 = 0;
-    while (timer.read() < 1000000000 and iterations <= 60) {
-        mutex.lock();
-        if (delay.* > 0) {
-            delay.* -= 1;
-        }
-        if (sound.* > 0) {
-            sound.* -= 1;
-        }
-        iterations += 1;
-        mutex.unlock();
-    }
-}
-
-pub fn GetKeys(key_array: [*c]u8, keyboard: *[16]u1) bool {
+pub fn GetKeys(key_array: [*c]u8, keyboard: *[16]u1) void {
     for (keyboard) |*key| {
         key.* = 0;
     }
@@ -57,6 +62,7 @@ pub fn GetKeys(key_array: [*c]u8, keyboard: *[16]u1) bool {
     if (key_array[c.SDL_SCANCODE_1] == 1) {
         keys_set = true;
         keyboard[1] = 1;
+        std.debug.print("1 was pressed", .{});
     }
     if (key_array[c.SDL_SCANCODE_2] == 1) {
         keys_set = true;
@@ -118,15 +124,14 @@ pub fn GetKeys(key_array: [*c]u8, keyboard: *[16]u1) bool {
         keys_set = true;
         keyboard[0xF] = 1;
     }
-    return keys_set;
 }
 
-pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, random: *std.Random, mutex: *std.Thread.Mutex) std.mem.Allocator.Error!void {
+pub fn executeInstruction(virtual_machine: *chip8.chip8, random: *std.Random) std.mem.Allocator.Error!void {
     var opcode: u16 = 0;
     opcode |= virtual_machine.memory[virtual_machine.pc];
     opcode <<= 8;
     opcode |= virtual_machine.memory[virtual_machine.pc + 1];
-    //   std.debug.print("Opcode: 0x{x}\n", .{opcode});
+    std.debug.print("Opcode: 0x{x}\n", .{opcode});
 
     switch (opcode & 0xF000) {
         0x0000 => blk: {
@@ -222,42 +227,58 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, rando
                     break :logic_operations;
                 },
                 0x4 => {
-                    if (virtual_machine.registers[register_x] + virtual_machine.registers[register_y] > 255) {
-                        virtual_machine.registers[15] = 1;
-                    } else {
+                    const sum = (@addWithOverflow(virtual_machine.registers[register_x], virtual_machine.registers[register_y]));
+                    virtual_machine.registers[register_x] = sum[0];
+
+                    if (sum[1] <= 0) {
                         virtual_machine.registers[15] = 0;
+                    } else {
+                        virtual_machine.registers[15] = 1;
                     }
-                    virtual_machine.registers[register_x] += virtual_machine.registers[register_y];
                     break :logic_operations;
                 },
                 0x5 => {
-                    if (virtual_machine.registers[register_x] > virtual_machine.registers[register_y]) {
+                    const difference = @subWithOverflow(virtual_machine.registers[register_x], virtual_machine.registers[register_y]);
+                    virtual_machine.registers[register_x] = difference[0];
+
+                    if (difference[1] <= 0) {
                         virtual_machine.registers[15] = 1;
                     } else {
                         virtual_machine.registers[15] = 0;
                     }
-                    virtual_machine.registers[register_x] -= virtual_machine.registers[register_y];
                     break :logic_operations;
                 },
                 0x6 => {
                     virtual_machine.registers[register_x] = virtual_machine.registers[register_y];
-                    virtual_machine.registers[15] = virtual_machine.registers[register_x] & 0b1;
+                    const result = virtual_machine.registers[register_x] & 0b1;
                     virtual_machine.registers[register_x] >>= 1;
-                    break :logic_operations;
-                },
-                0x7 => {
-                    if (virtual_machine.registers[register_y] > virtual_machine.registers[register_x]) {
+                    if (result == 1) {
                         virtual_machine.registers[15] = 1;
                     } else {
                         virtual_machine.registers[15] = 0;
                     }
-                    virtual_machine.registers[register_x] = virtual_machine.registers[register_y] - virtual_machine.registers[register_x];
+                    break :logic_operations;
+                },
+                0x7 => {
+                    const difference = @subWithOverflow(virtual_machine.registers[register_y], virtual_machine.registers[register_x]);
+
+                    virtual_machine.registers[register_x] = difference[0];
+                    if (difference[1] <= 0) {
+                        virtual_machine.registers[15] = 1;
+                    } else {
+                        virtual_machine.registers[15] = 0;
+                    }
                     break :logic_operations;
                 },
                 0xE => {
                     virtual_machine.registers[register_x] = virtual_machine.registers[register_y];
-                    virtual_machine.registers[15] = virtual_machine.registers[register_x] & 0b10000000;
-                    virtual_machine.registers[register_x] <<= 1;
+                    const result = @shlWithOverflow(virtual_machine.registers[register_x], 1);
+                    virtual_machine.registers[register_x] = result[0];
+                    if (result[1] <= 0) {
+                        virtual_machine.registers[15] = 0;
+                    } else {
+                        virtual_machine.registers[15] = 1;
+                    }
                     break :logic_operations;
                 },
 
@@ -324,7 +345,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, rando
             switch (opcode & 0xFF) {
                 0x9E => {
                     const key: u4 = @intCast((opcode & 0xF00) >> 8);
-                    if (GetKeys(keyboard, &virtual_machine.keypad) and virtual_machine.keypad[key] == 1) {
+                    if (virtual_machine.keypad[key] == 1) {
                         virtual_machine.pc += 2;
                         break :skip_key;
                     }
@@ -332,7 +353,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, rando
                 },
                 0xA1 => {
                     const key: u4 = @intCast((opcode & 0xF00) >> 8);
-                    if (!(GetKeys(keyboard, &virtual_machine.keypad)) or !(virtual_machine.keypad[key] == 1)) {
+                    if (!(virtual_machine.keypad[key] == 1)) {
                         virtual_machine.pc += 2;
                         break :skip_key;
                     }
@@ -351,33 +372,24 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, rando
             switch (opcode & 0xFF) {
                 0x0A => {
                     const register = ((opcode & 0xF00) >> 8);
-                    if (GetKeys(keyboard, &virtual_machine.keypad)) {
-                        for (virtual_machine.keypad, 0..) |input, index| {
-                            if (input == 1) {
-                                virtual_machine.registers[register] = @intCast(index);
-                                break :blk;
-                            }
+                    for (virtual_machine.keypad, 0..) |input, index| {
+                        if (input == 1) {
+                            virtual_machine.registers[register] = @intCast(index);
+                            break :blk;
                         }
-                    } else {
-                        return;
                     }
+                    return;
                 },
                 0x07 => {
-                    mutex.lock();
                     virtual_machine.registers[nib] = virtual_machine.delay;
-                    mutex.unlock();
                     break :blk;
                 },
                 0x15 => {
-                    mutex.lock();
                     virtual_machine.delay = virtual_machine.registers[nib];
-                    mutex.unlock();
                     break :blk;
                 },
                 0x18 => {
-                    mutex.lock();
                     virtual_machine.sound = virtual_machine.registers[nib];
-                    mutex.unlock();
                     break :blk;
                 },
                 0x1E => {
@@ -426,15 +438,13 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, keyboard: [*c]u8, rando
         },
     }
     virtual_machine.pc += 2;
+    std.time.sleep(std.time.ns_per_s / 900);
 }
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
-
-    const mutex: std.Thread.Mutex = .{};
-    const mutex_pointer = @constCast(&mutex);
 
     const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/c8games/PONG", .{});
     _ = try rom.seekTo(0);
@@ -472,31 +482,28 @@ pub fn main() !void {
     const event_pointer: [*c]c.SDL_Event = @constCast(&event);
     var keyboard: [*c]u8 = undefined;
 
-    const timer = try std.time.Timer.start();
-    const timer_pointer = @constCast(&timer);
-    var executed_intstructions: u16 = 0;
+    //const timer = try std.time.Timer.start();
+    //const timer_pointer = @constCast(&timer);
 
-    var timerThread = try std.Thread.spawn(.{}, decrementTimers, .{ timer_pointer, &virtual_machine.delay, &virtual_machine.sound, mutex_pointer });
+    var time: i128 = 1;
 
     while (true) {
         _ = c.SDL_PollEvent(event_pointer);
         if (event.type == c.SDL_QUIT) {
             c.SDL_DestroyWindow(screen);
             c.SDL_Quit();
-            timerThread.join();
             return;
         }
 
         keyboard = @constCast(c.SDL_GetKeyboardState(null));
+        GetKeys(keyboard, &virtual_machine.keypad);
 
-        wait(timer_pointer, &executed_intstructions);
+        decrementTimers(&virtual_machine.delay, &virtual_machine.sound, time);
+        time = std.time.nanoTimestamp();
 
-        timerThread = try std.Thread.spawn(.{}, decrementTimers, .{ timer_pointer, &virtual_machine.delay, &virtual_machine.sound, mutex_pointer });
-        defer timerThread.join();
+        //        wait(timer_pointer, &executed_intstructions);
 
-        _ = try executeInstruction(vm_pointer, keyboard, @constCast(&xoshiro.random()), mutex_pointer);
-        std.time.sleep(1660000);
-        executed_intstructions += 1;
+        _ = try executeInstruction(vm_pointer, @constCast(&xoshiro.random()));
         sdlDraw(vm_pointer.display, renderer);
     }
 }
