@@ -62,7 +62,6 @@ pub fn GetKeys(key_array: [*c]u8, keyboard: *[16]u1) void {
     if (key_array[c.SDL_SCANCODE_1] == 1) {
         keys_set = true;
         keyboard[1] = 1;
-        std.debug.print("1 was pressed", .{});
     }
     if (key_array[c.SDL_SCANCODE_2] == 1) {
         keys_set = true;
@@ -345,17 +344,17 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, random: *std.Random) st
             switch (opcode & 0xFF) {
                 0x9E => {
                     const key: u4 = @intCast((opcode & 0xF00) >> 8);
-                    if (virtual_machine.keypad[key] == 1) {
+                    if (virtual_machine.keypad[virtual_machine.registers[key]] == 1) {
                         virtual_machine.pc += 2;
-                        break :skip_key;
+                        std.debug.print("0xE000 {d} was pressed!\n", .{key});
                     }
                     break :skip_key;
                 },
                 0xA1 => {
                     const key: u4 = @intCast((opcode & 0xF00) >> 8);
-                    if (!(virtual_machine.keypad[key] == 1)) {
+                    if (!(virtual_machine.keypad[virtual_machine.registers[key]] == 1)) {
                         virtual_machine.pc += 2;
-                        break :skip_key;
+                        std.debug.print("0xE000 {d} was not pressed!\n", .{key});
                     }
                     break :skip_key;
                 },
@@ -364,8 +363,6 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, random: *std.Random) st
                     break :skip_key;
                 },
             }
-
-            break :skip_key;
         },
         0xF000 => blk: {
             const nib: u4 = @intCast((opcode & 0xF00) >> 8);
@@ -446,7 +443,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
-    const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/c8games/PONG", .{});
+    const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/Pong(1 player).ch8", .{});
     _ = try rom.seekTo(0);
     const rom_data = try rom.stat();
 
