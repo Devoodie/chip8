@@ -215,14 +215,17 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, random: *std.Random) st
                 },
                 0x1 => {
                     virtual_machine.registers[register_x] |= virtual_machine.registers[register_y];
+                    virtual_machine.registers[15] = 0;
                     break :logic_operations;
                 },
                 0x2 => {
                     virtual_machine.registers[register_x] &= virtual_machine.registers[register_y];
+                    virtual_machine.registers[15] = 0;
                     break :logic_operations;
                 },
                 0x3 => {
                     virtual_machine.registers[register_x] ^= virtual_machine.registers[register_y];
+                    virtual_machine.registers[15] = 0;
                     break :logic_operations;
                 },
                 0x4 => {
@@ -273,7 +276,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, random: *std.Random) st
                     virtual_machine.registers[register_x] = virtual_machine.registers[register_y];
                     const result = @shlWithOverflow(virtual_machine.registers[register_x], 1);
                     virtual_machine.registers[register_x] = result[0];
-                    if (result[1] <= 0) {
+                    if (result[1] == 0) {
                         virtual_machine.registers[15] = 0;
                     } else {
                         virtual_machine.registers[15] = 1;
@@ -300,9 +303,9 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, random: *std.Random) st
             virtual_machine.index = address;
             break :set_index;
         },
-        0xB000 => offset_jump: {
+        0xB000 =>  {
             virtual_machine.pc = (opcode & 0xFFF) + virtual_machine.registers[0];
-            break :offset_jump;
+            return;
         },
         0xC000 => blk: {
             const register: u4 = @intCast((opcode & 0xF00) >> 8);
@@ -320,7 +323,6 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, random: *std.Random) st
 
             for (0..n) |i| {
                 sprite_row = virtual_machine.memory[virtual_machine.index + i];
-                virtual_machine.registers[15] = 0;
 
                 row: for (0..8) |_| {
                     pixel = @intCast((sprite_row & 0b10000000) >> 7);
@@ -391,6 +393,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, random: *std.Random) st
                 },
                 0x1E => {
                     virtual_machine.index += virtual_machine.registers[nib];
+                    virtual_machine.index &= 0xFFF;
                     break :blk;
                 },
                 0x29 => {
@@ -443,7 +446,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
-    const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/Pong(1 player).ch8", .{});
+    const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/c8games/TETRIS", .{});
     _ = try rom.seekTo(0);
     const rom_data = try rom.stat();
 
