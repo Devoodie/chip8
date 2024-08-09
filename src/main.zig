@@ -413,6 +413,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, random: *std.Random) st
                 0x55 => {
                     var i: u8 = 0;
                     for (virtual_machine.registers[0 .. nib + 1], 0..) |value, index| {
+                        std.debug.print("{d}", .{nib});
                         i = @intCast(index);
                         virtual_machine.memory[virtual_machine.index + i] = value;
                     }
@@ -421,6 +422,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, random: *std.Random) st
                 0x65 => {
                     var i: u8 = 0;
                     for (virtual_machine.registers[0 .. nib + 1], 0..) |*value, index| {
+                        std.debug.print("{d}", .{nib});
                         i = @intCast(index);
                         value.* = virtual_machine.memory[virtual_machine.index + i];
                     }
