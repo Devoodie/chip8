@@ -37,8 +37,8 @@ pub fn decrementTimers(delay: *u8, sound: *u8, previous_time: i128) void {
     const decrement = @as(u8, @intCast(@divExact((std.time.nanoTimestamp() - previous_time), 16666666)));
     if (delay.* > 0) {
         const delay_result = @subWithOverflow(delay.*, decrement);
-        if (delay_result[1] < 0) {
-            delay.* -= decrement[0];
+        if (delay_result[1] == 0) {
+            delay.* -= delay_result[0];
         } else {
             delay.* = 0;
         }
@@ -46,10 +46,10 @@ pub fn decrementTimers(delay: *u8, sound: *u8, previous_time: i128) void {
 
     if (sound.* > 0) {
         const sound_result = @subWithOverflow(sound.*, decrement);
-        if (sound_result[1] < 0) {
-            sound.* -= decrement[0];
+        if (sound_result[1] == 0) {
+            sound.* -= sound_result[0];
         } else {
-            delay.* = 0;
+            sound.* = 0;
         }
     }
 }
@@ -130,7 +130,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, random: *std.Random) st
     opcode |= virtual_machine.memory[virtual_machine.pc];
     opcode <<= 8;
     opcode |= virtual_machine.memory[virtual_machine.pc + 1];
-    std.debug.print("Opcode: 0x{x}\n", .{opcode});
+    // std.debug.print("Opcode: 0x{x}\n", .{opcode});
 
     switch (opcode & 0xF000) {
         0x0000 => blk: {
@@ -303,7 +303,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, random: *std.Random) st
             virtual_machine.index = address;
             break :set_index;
         },
-        0xB000 =>  {
+        0xB000 => {
             virtual_machine.pc = (opcode & 0xFFF) + virtual_machine.registers[0];
             return;
         },
@@ -348,7 +348,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, random: *std.Random) st
                     const key: u4 = @intCast((opcode & 0xF00) >> 8);
                     if (virtual_machine.keypad[virtual_machine.registers[key]] == 1) {
                         virtual_machine.pc += 2;
-                        std.debug.print("0xE000 {d} was pressed!\n", .{key});
+                        std.debug.print("0xE000 {d} was pressed!\n", .{virtual_machine.registers[key]});
                     }
                     break :skip_key;
                 },
@@ -356,7 +356,7 @@ pub fn executeInstruction(virtual_machine: *chip8.chip8, random: *std.Random) st
                     const key: u4 = @intCast((opcode & 0xF00) >> 8);
                     if (!(virtual_machine.keypad[virtual_machine.registers[key]] == 1)) {
                         virtual_machine.pc += 2;
-                        std.debug.print("0xE000 {d} was not pressed!\n", .{key});
+                        std.debug.print("0xE000 {d} was not pressed!\n", .{virtual_machine.registers[key]});
                     }
                     break :skip_key;
                 },
@@ -448,7 +448,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
-    const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/c8games/TETRIS", .{});
+    const rom = try std.fs.openFileAbsolute("/home/devooty/programming/chip8/roms/c8games/INVADERS", .{});
     _ = try rom.seekTo(0);
     const rom_data = try rom.stat();
 
