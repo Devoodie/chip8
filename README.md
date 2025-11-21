@@ -14,6 +14,6 @@ Build Requirements:
 - <s>Import SDL2 C library.</s>
 - <s>Draw Pixels from Chip8's bitmap.</s>
 - <s>Implement keyscans and input.</s>
-- Implement the rest of the Opcode.
+- <s>Implement the rest of the Opcode.</s>
 - Add Support for multiple screen sizes.
 - Add quality of life settings and some way to import settings from local files. 
